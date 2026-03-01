@@ -74,51 +74,371 @@ class MaterialsDatabase:
     def _load_default_materials(self) -> List[Dict]:
         """
         Load the default materials list.
+        All unit_cost values are sanitized to 0.00.
+        Populate via vendor quote import or environment config.
         
         Returns:
-            List of material dictionaries with name, part_number, unit_cost, unit
+            List of material dictionaries with name, part_number, unit_cost, unit, category
         """
-        # NOTE: These are generic placeholder prices for demonstration only.
-        # Replace with your actual vendor pricing in a local materials_data.json file.
         materials = [
-            # Conduit (UG) - Generic pricing for demo
-            {"name": "1/2\" Conduit", "part_number": None, "unit_cost": 1.00, "unit": "FT", "category": "Conduit"},
-            {"name": "3/4\" Conduit", "part_number": None, "unit_cost": 1.50, "unit": "FT", "category": "Conduit"},
-            {"name": "1\" Conduit", "part_number": None, "unit_cost": 2.00, "unit": "FT", "category": "Conduit"},
-            {"name": "2\" Conduit", "part_number": None, "unit_cost": 3.00, "unit": "FT", "category": "Conduit"},
-            {"name": "3\" Conduit", "part_number": None, "unit_cost": 4.50, "unit": "FT", "category": "Conduit"},
-            {"name": "4\" Conduit", "part_number": None, "unit_cost": 6.00, "unit": "FT", "category": "Conduit"},
+            # ================================================================
+            # UNDERGROUND CONDUIT
+            # ================================================================
+            {"name": "1/2\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "3/4\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "1\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "1.25\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "1.5\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "2\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "3\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "4\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "1\" PVC Conduit Schedule 40", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "2\" PVC Conduit Schedule 40", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "4\" PVC Conduit Schedule 40", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "2\" Rigid Steel Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
+            {"name": "4\" Rigid Steel Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Conduit"},
 
-            # Cable - Generic pricing for demo
-            {"name": "Fiber Optic Cable 12ct", "part_number": None, "unit_cost": 1.00, "unit": "FT", "category": "Cable"},
-            {"name": "Fiber Optic Cable 24ct", "part_number": None, "unit_cost": 1.50, "unit": "FT", "category": "Cable"},
-            {"name": "Fiber Optic Cable 48ct", "part_number": None, "unit_cost": 2.00, "unit": "FT", "category": "Cable"},
-            {"name": "Pull Wire 1200' Roll", "part_number": None, "unit_cost": 75.00, "unit": "each", "category": "Cable"},
+            # ================================================================
+            # INNERDUCT
+            # ================================================================
+            {"name": "1\" Innerduct Orange", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Innerduct"},
+            {"name": "1\" Innerduct Yellow", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Innerduct"},
+            {"name": "1\" Innerduct Red", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Innerduct"},
+            {"name": "1.25\" Innerduct Orange", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Innerduct"},
+            {"name": "1.5\" Innerduct Orange", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Innerduct"},
+            {"name": "Innerduct End Cap 1\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Innerduct"},
+            {"name": "Innerduct Coupler 1\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Innerduct"},
+            {"name": "Innerduct Coupler 1.25\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Innerduct"},
 
-            # Hardware - Generic pricing for demo
-            {"name": "Splice Closure", "part_number": None, "unit_cost": 150.00, "unit": "ea", "category": "Hardware"},
-            {"name": "Cable Clamp", "part_number": None, "unit_cost": 5.00, "unit": "ea", "category": "Hardware"},
-            {"name": "Mounting Bracket", "part_number": None, "unit_cost": 25.00, "unit": "ea", "category": "Hardware"},
-            {"name": "Duct Coupler 2\"", "part_number": None, "unit_cost": 10.00, "unit": "ea", "category": "Hardware"},
-            {"name": "Duct Coupler 4\"", "part_number": None, "unit_cost": 15.00, "unit": "ea", "category": "Hardware"},
+            # ================================================================
+            # CONDUIT FITTINGS AND HARDWARE
+            # ================================================================
+            {"name": "2\" Duct Coupler", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "3\" Duct Coupler", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "4\" Duct Coupler", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "2\" Duct Plug", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "4\" Duct Plug", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "2\" 90-Degree Elbow HDPE", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "4\" 90-Degree Elbow HDPE", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "2\" End Bell", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "4\" End Bell", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "Duct Seal Compound 1lb", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "Conduit Spacer 2\" 4-way", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
+            {"name": "Conduit Spacer 4\" 4-way", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Conduit Fittings"},
 
-            # Infrastructure - Generic pricing for demo
-            {"name": "Handhole 18\" x 24\"", "part_number": None, "unit_cost": 300.00, "unit": "each", "category": "Infrastructure"},
-            {"name": "Handhole 24\" x 36\"", "part_number": None, "unit_cost": 450.00, "unit": "each", "category": "Infrastructure"},
-            {"name": "Handhole 36\" x 48\"", "part_number": None, "unit_cost": 650.00, "unit": "each", "category": "Infrastructure"},
+            # ================================================================
+            # UNDERGROUND FIBER CABLE
+            # ================================================================
+            {"name": "Direct Buried Fiber 12ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Direct Buried Fiber 24ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Direct Buried Fiber 48ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Direct Buried Fiber 96ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Direct Buried Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Direct Buried Fiber 288ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 12ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 24ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 48ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 96ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Loose Tube Fiber 288ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Micro Cable Fiber 12ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Micro Cable Fiber 24ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Ribbon Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Ribbon Fiber 288ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
+            {"name": "Ribbon Fiber 432ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Underground Cable"},
 
-            # Grounding - Generic pricing for demo
-            {"name": "Ground Rod", "part_number": None, "unit_cost": 20.00, "unit": "each", "category": "Grounding"},
-            {"name": "Ground Rod Clamp", "part_number": None, "unit_cost": 3.00, "unit": "each", "category": "Grounding"},
-            {"name": "#6 Ground Wire (per foot)", "part_number": None, "unit_cost": 1.50, "unit": "FT", "category": "Grounding"},
+            # ================================================================
+            # AERIAL STRAND AND HARDWARE
+            # ================================================================
+            {"name": "1/4\" Messenger Strand 6M", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial"},
+            {"name": "5/16\" Messenger Strand 6M", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial"},
+            {"name": "3/8\" Messenger Strand 6M", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial"},
+            {"name": "Lashing Wire 3/8\" 1000ft Reel", "part_number": None, "unit_cost": 0.00, "unit": "reel", "category": "Aerial"},
+            {"name": "Down Guy Wire 1/4\" 250ft Reel", "part_number": None, "unit_cost": 0.00, "unit": "reel", "category": "Aerial"},
+            {"name": "Guy Anchor Helix", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Pole Band Clamp", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Dead End Grip 3/8\" Strand", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Strandvise 1/4\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Strandvise 5/16\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Strandvise 3/8\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Strand Clamp 1/4\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Strand Clamp 5/16\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Preformed Lashing Tie", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Lasher Misc Kit", "part_number": None, "unit_cost": 0.00, "unit": "kit", "category": "Aerial"},
+            {"name": "Riser Pole Attachment Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Aerial Slack Storage Bracket", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Aerial Fiber Drop Clamp", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
+            {"name": "Aerial Fiber Suspension Clamp", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Aerial"},
 
-            # Safety - Generic pricing for demo
-            {"name": "Marking Tape 1000' Roll", "part_number": None, "unit_cost": 30.00, "unit": "each", "category": "Safety"},
-            {"name": "Safety Barricade 48\"", "part_number": None, "unit_cost": 35.00, "unit": "each", "category": "Safety"},
-            {"name": "Bollard Post", "part_number": None, "unit_cost": 175.00, "unit": "each", "category": "Safety"},
+            # ================================================================
+            # AERIAL FIBER CABLE
+            # ================================================================
+            {"name": "Figure-8 Aerial Fiber 12ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "Figure-8 Aerial Fiber 24ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "Figure-8 Aerial Fiber 48ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "Figure-8 Aerial Fiber 96ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "Figure-8 Aerial Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "ADSS Aerial Fiber 12ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "ADSS Aerial Fiber 24ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "ADSS Aerial Fiber 48ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "ADSS Aerial Fiber 96ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "ADSS Aerial Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "OPGW Fiber Cable 24ct", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
+            {"name": "OPGW Fiber Cable 48ct", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Aerial Cable"},
 
-            # Materials - Generic pricing for demo
-            {"name": "Gravel (per bag)", "part_number": None, "unit_cost": 8.00, "unit": "bag", "category": "Materials"},
+            # ================================================================
+            # DROP CABLE (MDU AND FTTH)
+            # ================================================================
+            {"name": "Fiber Drop Cable 2ct SMF Flat", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Drop Cable"},
+            {"name": "Fiber Drop Cable 4ct SMF Flat", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Drop Cable"},
+            {"name": "Fiber Drop Cable 2ct SMF Round", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Drop Cable"},
+            {"name": "Fiber Drop Cable 4ct SMF Round", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Drop Cable"},
+            {"name": "Fiber Drop Cable 2ct w/ Messenger", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Drop Cable"},
+            {"name": "Pre-Connectorized Drop SC-APC 50ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drop Cable"},
+            {"name": "Pre-Connectorized Drop SC-APC 100ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drop Cable"},
+            {"name": "Pre-Connectorized Drop SC-APC 150ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drop Cable"},
+            {"name": "Pre-Connectorized Drop SC-APC 200ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drop Cable"},
+
+            # ================================================================
+            # SPLICE CLOSURES
+            # ================================================================
+            {"name": "Aerial Inline Splice Closure 24ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Aerial Inline Splice Closure 48ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Aerial Inline Splice Closure 96ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Aerial Butt Splice Closure 24ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Aerial Butt Splice Closure 48ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Underground Splice Closure 24ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Underground Splice Closure 48ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Underground Splice Closure 96ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Underground Splice Closure 144ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Underground Splice Closure 288ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Pedestal Mount Splice Closure 48ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Splice Tray 12ct Single-sided", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Splice Tray 24ct Dual-sided", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+            {"name": "Fusion Splice Protector Pkg/100", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Splice Closure"},
+            {"name": "Mechanical Splice Connector SC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splice Closure"},
+
+            # ================================================================
+            # HANDHOLES AND VAULTS
+            # ================================================================
+            {"name": "Handhole 18\" x 24\" T22 Lid", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Handhole 24\" x 36\" T22 Lid", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Handhole 30\" x 48\" T22 Lid", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Handhole 36\" x 60\" T22 Lid", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Polymer Vault Lid T22", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Concrete Vault 4x4x4", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Concrete Vault 5x5x5", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+            {"name": "Flowerpot Conduit Entry", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Hand Holes"},
+
+            # ================================================================
+            # PEDESTALS
+            # ================================================================
+            {"name": "Fiber Pedestal 48ct SC-APC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Fiber Pedestal 72ct SC-APC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Fiber Pedestal 96ct SC-APC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Fiber Pedestal 144ct SC-APC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Pedestal Base Anchor Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Pedestal Extension Riser 12\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+            {"name": "Pedestal Lock Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pedestals"},
+
+            # ================================================================
+            # PASSIVE DISTRIBUTION CABINETS (FDH / FAP / FST)
+            # ================================================================
+            {"name": "FDH Cabinet 288ct SC-APC Aerial", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FDH Cabinet 288ct SC-APC Pedestal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FDH Cabinet 576ct SC-APC Aerial", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FDH Cabinet 576ct SC-APC Pedestal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FAP Fiber Access Point 48ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FAP Fiber Access Point 96ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "FAP Fiber Access Point 144ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Splice Terminal 8ct Aerial", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Splice Terminal 16ct Aerial", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Splice Terminal 24ct Pedestal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Wall Mount Fiber Distribution Box 12ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Wall Mount Fiber Distribution Box 24ct", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Patch Panel 24-port SC-APC 1U", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Patch Panel 48-port SC-APC 2U", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Fiber Patch Panel 24-port LC-UPC 1U", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Cabinet Ground Lug Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+            {"name": "Cabinet Mounting Pole Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Passive Cabinet"},
+
+            # ================================================================
+            # ACTIVE CABINETS AND EQUIPMENT
+            # ================================================================
+            {"name": "OLT Outdoor Hardened Cabinet", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Shelf 4-slot", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Shelf 8-slot", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Line Card GPON 8-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Line Card GPON 16-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Line Card XGS-PON 8-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Line Card XGS-PON 16-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Uplink Card 10G SFP+", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Power Supply Unit -48VDC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "OLT Fan Tray Replacement", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "Remote OLT Node Outdoor Hardened", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "Fiber Node Cabinet Outdoor 19\" Rack", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "Cabinet AC Power Distribution Unit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "Cabinet Battery Backup Unit 48V", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+            {"name": "Cabinet Cooling Fan Unit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Active Cabinet"},
+
+            # ================================================================
+            # SPLITTERS (PASSIVE OPTICAL)
+            # ================================================================
+            {"name": "PLC Splitter 1x2 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x4 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x8 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x16 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x32 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x64 SC-APC Bare", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x8 SC-APC Cassette", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x16 SC-APC Cassette", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 1x32 SC-APC Cassette", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+            {"name": "PLC Splitter 2x32 SC-APC Tray Mount", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Splitters"},
+
+            # ================================================================
+            # CONNECTORS AND PIGTAILS
+            # ================================================================
+            {"name": "SC-APC Pigtail SMF 900um 1M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "SC-UPC Pigtail SMF 900um 1M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "LC-APC Pigtail SMF 900um 1M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "LC-UPC Pigtail SMF 900um 1M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "SC-APC Patch Cord SMF 3M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "SC-APC Patch Cord SMF 5M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "LC-UPC Patch Cord SMF 3M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "SC-APC to LC-UPC Hybrid Patch Cord 3M", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "SC-APC Adapter Coupler", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "LC-UPC Adapter Coupler", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "Optical Attenuator SC-APC 5dB", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "Optical Attenuator SC-APC 10dB", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "Fiber Optic Dust Cap SC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+            {"name": "Fiber Optic Dust Cap LC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Connectors"},
+
+            # ================================================================
+            # NETWORK INTERFACE DEVICES (NIDs)
+            # ================================================================
+            {"name": "NID Single Port SC-APC Indoor", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+            {"name": "NID Dual Port SC-APC Indoor", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+            {"name": "NID Single Port SC-APC Outdoor", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+            {"name": "NID Hardened Outdoor 2-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+            {"name": "NID Hardened Outdoor 4-port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+            {"name": "NID Wall Mount Bracket", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "NID"},
+
+            # ================================================================
+            # PULL WIRE AND MULE TAPE
+            # ================================================================
+            {"name": "Mule Tape 3000ft Reel", "part_number": None, "unit_cost": 0.00, "unit": "reel", "category": "Pull Supplies"},
+            {"name": "Pull Wire Steel 1200ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Pull Supplies"},
+            {"name": "Pull String Nylon 1000ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Pull Supplies"},
+            {"name": "Cable Lubricant 1 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pull Supplies"},
+            {"name": "Cable Lubricant 5 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pull Supplies"},
+            {"name": "Fiber Pull Swivel 2\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pull Supplies"},
+            {"name": "Fiber Pull Sock 1\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pull Supplies"},
+            {"name": "Fiber Pull Sock 2\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Pull Supplies"},
+
+            # ================================================================
+            # GROUNDING
+            # ================================================================
+            {"name": "Ground Rod 5/8\" x 8ft Copper", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+            {"name": "Ground Rod Clamp", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+            {"name": "#6 Insulated Ground Wire 600ft Reel", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Grounding"},
+            {"name": "#4 Bare Copper Ground Wire 500ft Reel", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Grounding"},
+            {"name": "Grounding Staples 500-pack", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Grounding"},
+            {"name": "Split Bolt Connector #6", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+            {"name": "Compression Ground Lug #6", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+            {"name": "Strand Ground Clamp", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+            {"name": "Cabinet Ground Bar Kit", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Grounding"},
+
+            # ================================================================
+            # SAFETY AND SITE MATERIALS
+            # ================================================================
+            {"name": "Dig Marking Tape Orange 1000ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Safety"},
+            {"name": "Warning Tape Fiber Optic 1000ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Safety"},
+            {"name": "48\" Orange Plastic Safety Barricade", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Safety"},
+            {"name": "Traffic Cone 28\" Orange", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Safety"},
+            {"name": "Vinyl Flagging Tape Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Safety"},
+            {"name": "Bollard Post Steel", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Safety"},
+            {"name": "Bollard Cover Orange", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Safety"},
+
+            # ================================================================
+            # MARKERS AND IDENTIFICATION
+            # ================================================================
+            {"name": "Fiber Route Marker Post", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Markers"},
+            {"name": "Fiber ID Label Pkg/50", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Markers"},
+            {"name": "Cable ID Tag Pkg/100", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Markers"},
+            {"name": "Handhole Lid ID Plate", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Markers"},
+            {"name": "Pedestal ID Tag", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Markers"},
+            {"name": "Splice Closure ID Tag", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Markers"},
+
+            # ================================================================
+            # CONSUMABLES AND SUPPLIES
+            # ================================================================
+            {"name": "Fiber Cleaning Kit IBC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+            {"name": "Fiber End-Face Cleaner 500 clicks", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+            {"name": "Isopropyl Alcohol 99% 1L", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+            {"name": "Lint-Free Wipes Pkg/100", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Consumables"},
+            {"name": "Cable Ties 8\" Pkg/100", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Consumables"},
+            {"name": "Self-Amalgamating Tape Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Consumables"},
+            {"name": "Electrical Tape Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Consumables"},
+            {"name": "Heat Shrink Tubing Assortment", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Consumables"},
+            {"name": "Silicone Sealant 10oz", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+            {"name": "Expanding Foam Sealant 12oz", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+            {"name": "Dielectric Grease 4oz", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Consumables"},
+
+            # ================================================================
+            # BULK MATERIALS AND AGGREGATES
+            # ================================================================
+            {"name": "Pea Gravel Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Materials"},
+            {"name": "Sand Fill Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Materials"},
+            {"name": "Concrete Premix 60lb Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Materials"},
+            {"name": "Flowable Fill CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Materials"},
+            {"name": "Asphalt Cold Patch Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Materials"},
+
+            # ================================================================
+            # TEST AND INSPECTION
+            # ================================================================
+            {"name": "OTDR Test Port Adapter SC-APC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "OTDR Test Port Adapter LC-UPC", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "Optical Power Meter Handheld", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "Visual Fault Locator VFL 10mW", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "Fiber End-Face Inspection Scope 400x", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "Optical Light Source SM 1310/1550nm", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+            {"name": "Fiber Identifier Live Fiber Detector", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Test Equipment"},
+
+            # ================================================================
+            # PLOW CONSTRUCTION MATERIALS
+            # ================================================================
+            {"name": "Plow-Grade Direct Buried Fiber 48ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade Direct Buried Fiber 96ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade Direct Buried Fiber 144ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade Direct Buried Fiber 288ct SMF", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade 1\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade 1.25\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow-Grade 2\" HDPE Conduit", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Plow Construction"},
+            {"name": "Plow Depth Marker Flag Pkg/100", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Plow Construction"},
+            {"name": "Cable Reel Trailer Stand Rental Day", "part_number": None, "unit_cost": 0.00, "unit": "day", "category": "Plow Construction"},
+            {"name": "Reel Brake Assembly Rental Day", "part_number": None, "unit_cost": 0.00, "unit": "day", "category": "Plow Construction"},
+
+            # ================================================================
+            # CONCRETE PAD MATERIALS
+            # ================================================================
+            {"name": "Concrete Ready-Mix 3000psi CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Concrete Pad"},
+            {"name": "Concrete Premix 60lb Bag 3000psi", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Concrete Pad"},
+            {"name": "Rebar #4 20ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Rebar #4 Cut and Bent Per Piece", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Rebar Tie Wire 16ga 3.5lb Coil", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Rebar Chair Spacer 2\" Pkg/50", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Concrete Pad"},
+            {"name": "Anchor Bolt Kit 4x4 Cabinet 4-bolt", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Anchor Bolt Kit 4x4 Cabinet 6-bolt", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Anchor Bolt 1/2\" x 12\" L-Type", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Anchor Bolt Template 4x4 Pad", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Conduit Stub-Up 2\" 90-Degree Through Pad", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Plywood Form Board 3/4\" 4x8 Sheet", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Form Stake Steel 1.5\" x 18\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Form Release Oil 1 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Gravel Base Compacted 4\" Depth CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Concrete Pad"},
+            {"name": "Geotextile Fabric 4x4 Pad Cut", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Concrete Sealer Penetrating 1 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
+            {"name": "Expansion Joint Filler 1/2\" x 4\" Strip", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Concrete Pad"},
         ]
         
         return materials

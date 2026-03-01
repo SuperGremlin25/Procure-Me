@@ -18,6 +18,7 @@ from src.pricing_calculator import PricingProcessor
 from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
 from src.pdf_parser import PDFParser
+from src.vendor_detector import VendorDetector
 
 
 def _detect_columns(df: pd.DataFrame) -> dict:
@@ -360,6 +361,110 @@ def process_quote_tab(materials_db):
         if uploaded_file.size > 50 * 1024 * 1024:
             st.error("File too large. Please upload a file smaller than 50MB.")
             return
+        
+        st.success(f"✅ File uploaded: {uploaded_file.name}")
+        
+        # ── VENDOR VALIDATION (NEW) ──────────────────────────────
+        st.markdown("---")
+        st.markdown('<h3>⚠️ STEP 1: Verify Vendor Information</h3>', unsafe_allow_html=True)
+        st.markdown("""
+        **Why this matters:** Accurate vendor identification helps with column mapping and future quote comparison features.
+        """)
+        
+        # Initialize vendor detector
+        detector = VendorDetector()
+        
+        # Try filename detection first
+        filename_result = detector.detect_from_filename(uploaded_file.name)
+        
+        # For content detection, we need to preview the file
+        vendor_name = None
+        try:
+            # Quick preview parse (first 15 rows only)
+            if uploaded_file.type == 'application/pdf':
+                # For PDF, we'll skip content detection to avoid double parsing
+                content_result = {"vendor_name": "Unknown", "confidence": 0.0}
+            else:
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_preview:
+                    tmp_preview.write(uploaded_file.getbuffer())
+                    preview_path = tmp_preview.name
+                
+                # Read just first 15 rows for detection
+                preview_df = pd.read_excel(preview_path, nrows=15)
+                content_result = detector.detect_from_dataframe(preview_df)
+                
+                # Reset file pointer for later processing
+                uploaded_file.seek(0)
+                
+                # Clean up temp file
+                try:
+                    os.unlink(preview_path)
+                except:
+                    pass
+        except Exception as e:
+            content_result = {"vendor_name": "Unknown", "confidence": 0.0}
+        
+        # Use best result
+        best_result = detector.combine_results(content_result, filename_result)
+        
+        # Display detection results with appropriate UI
+        if best_result['confidence'] >= 0.7:
+            st.success(f"✅ **Vendor Detected:** {best_result['vendor_name']} (Confidence: {best_result['confidence']:.0%})")
+            if best_result['indicators']:
+                with st.expander("Detection Details"):
+                    for indicator in best_result['indicators'][:3]:
+                        st.caption(f"• {indicator}")
+            vendor_name = st.text_input(
+                "Confirm or Edit Vendor Name",
+                value=best_result['vendor_name'],
+                help="Verify this is correct before proceeding",
+                key="vendor_name_input"
+            )
+            
+        elif best_result['confidence'] >= 0.4:
+            st.warning(f"⚠️ **Possible Vendor:** {best_result['vendor_name']} (Low Confidence: {best_result['confidence']:.0%})")
+            if best_result['indicators']:
+                with st.expander("Detection Details"):
+                    for indicator in best_result['indicators'][:3]:
+                        st.caption(f"• {indicator}")
+            vendor_name = st.text_input(
+                "Confirm or Edit Vendor Name",
+                value=best_result['vendor_name'],
+                help="Please verify this is correct - low confidence detection",
+                key="vendor_name_input"
+            )
+            
+        else:
+            st.error("🛑 **VENDOR NOT DETECTED**")
+            st.markdown("""
+            **Manual Entry Required**
+            
+            The vendor name could not be automatically detected from your quote file.
+            Please enter the vendor name manually to ensure accurate processing.
+            
+            💡 **Tip:** For better auto-detection in the future, ensure the vendor name 
+            appears in the header rows of your quote.
+            """)
+            vendor_name = st.text_input(
+                "Enter Vendor Name",
+                placeholder="e.g., Vendor Supply Co, ABC Electric, etc.",
+                help="Required field - cannot proceed without vendor name",
+                key="vendor_name_input"
+            )
+        
+        # Validation gate - prevent proceeding without vendor name
+        if not vendor_name or vendor_name.strip() == "" or vendor_name.strip().lower() == "unknown":
+            st.error("❌ **Vendor name is required to continue**")
+            st.info("Please enter a valid vendor name above to proceed with quote processing.")
+            st.stop()
+        
+        # Success - store vendor name for later use
+        st.session_state['current_vendor'] = vendor_name.strip()
+        st.success(f"✅ **Proceeding with vendor:** {vendor_name}")
+        
+        st.markdown("---")
+        st.markdown('<h3>📊 STEP 2: Process Quote File</h3>', unsafe_allow_html=True)
         
         # Check file type
         is_pdf = uploaded_file.type == 'application/pdf'
@@ -988,18 +1093,65 @@ def materials_list_tab(materials_db):
     st.markdown('<h2 class="section-header">Materials Database</h2>', 
                 unsafe_allow_html=True)
     
-    # Display materials table (hide sensitive columns)
-    materials_df = materials_db.to_dataframe(hide_sensitive=True)
+    st.markdown("""
+    Browse our comprehensive database of OSP fiber construction materials.
+    All pricing is placeholder ($0.00) - upload vendor quotes to populate actual costs.
+    """)
     
-    # Search/filter
-    search_term = st.text_input("Search materials...")
+    # Get full materials dataframe with all columns
+    materials_df = materials_db.to_dataframe(hide_sensitive=False)
+    
+    # Stats row
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Materials", len(materials_df))
+    with col2:
+        st.metric("Categories", materials_df['category'].nunique())
+    with col3:
+        st.metric("Units of Measure", materials_df['unit'].nunique())
+    
+    st.markdown("---")
+    
+    # Filter row
+    filter_col1, filter_col2 = st.columns([1, 2])
+    
+    with filter_col1:
+        # Category filter
+        categories = sorted(materials_df['category'].unique().tolist())
+        selected_category = st.selectbox(
+            "Filter by Category",
+            ["All Categories"] + categories,
+            help="Filter materials by category"
+        )
+    
+    with filter_col2:
+        # Search filter
+        search_term = st.text_input(
+            "🔍 Search materials",
+            placeholder="e.g., conduit, fiber, splice, cable...",
+            help="Search by material name"
+        )
+    
+    # Apply filters
+    filtered_df = materials_df.copy()
+    
+    if selected_category != "All Categories":
+        filtered_df = filtered_df[filtered_df['category'] == selected_category]
     
     if search_term:
-        filtered_df = materials_df[materials_df['name'].str.contains(search_term, case=False)]
-    else:
-        filtered_df = materials_df
+        filtered_df = filtered_df[filtered_df['name'].str.contains(search_term, case=False, na=False)]
     
-    st.dataframe(filtered_df, use_container_width=True)
+    # Display filtered results
+    st.markdown(f"**Showing {len(filtered_df)} materials**")
+    
+    # Format for display - show only relevant columns
+    display_df = filtered_df[['name', 'category', 'unit', 'unit_cost']].copy()
+    display_df.columns = ['Material Name', 'Category', 'Unit', 'Unit Cost']
+    display_df['Unit Cost'] = display_df['Unit Cost'].map('${:,.2f}'.format)
+    
+    st.dataframe(display_df, use_container_width=True, height=600)
     
     # Edit existing materials
     with st.expander("Edit Material Pricing"):
