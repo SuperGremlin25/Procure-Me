@@ -1,0 +1,137 @@
+name: Security Patches
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Check for patches daily at 5 AM UTC
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  security-patches:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install safety pip-audit
+        
+    - name: Check for known security vulnerabilities
+      run: |
+        echo "## 🔍 Checking for security vulnerabilities..."
+        safety check --json --output safety-report.json || true
+        safety check
+        
+    - name: Run pip-audit for CVEs
+      run: |
+        echo "## 🛡️ Running pip-audit for CVEs..."
+        pip-audit --format=json --output=audit-report.json || true
+        pip-audit --format=table
+        
+    - name: Check for patch updates
+      run: |
+        echo "## 📦 Checking for available patches..."
+        pip list --outdated --format=json > outdated.json
+        
+        # Check for critical security updates
+        python -c "
+import json
+import sys
+
+with open('outdated.json', 'r') as f:
+    outdated = json.load(f)
+
+critical_updates = []
+high_updates = []
+
+for pkg in outdated:
+    if 'security' in pkg.get('latest_version', '').lower() or 'security' in pkg.get('latest_filetype', '').lower():
+        critical_updates.append(pkg)
+    elif any(x in pkg.get('latest_version', '') for x in ['rc', 'beta', 'alpha']):
+        continue
+    else:
+        # Check version difference for severity
+        current = pkg.get('version', '').split('.')
+        latest = pkg.get('latest_version', '').split('.')
+        
+        if len(current) >= 2 and len(latest) >= 2:
+            if int(latest[0]) > int(current[0]):
+                high_updates.append(pkg)
+            elif int(latest[0]) == int(current[0]) and int(latest[1]) > int(current[1]):
+                high_updates.append(pkg)
+
+if critical_updates:
+    print('🚨 CRITICAL SECURITY UPDATES NEEDED:')
+    for pkg in critical_updates:
+        print(f'  - {pkg[\"name\"]}: {pkg[\"version\"]} → {pkg[\"latest_version\"]}')
+    
+if high_updates:
+    print('\\n⚠️ HIGH PRIORITY UPDATES:')
+    for pkg in high_updates:
+        print(f'  - {pkg[\"name\"]}: {pkg[\"version\"]} → {pkg[\"latest_version\"]}')
+        
+if not critical_updates and not high_updates:
+    print('✅ No critical or high priority updates needed')
+"
+      
+    - name: Generate Patch Report
+      run: |
+        cat > patch-report.md << 'EOF'
+        # Security Patch Report
+        
+        Generated on: $(date)
+        
+        ## Summary
+        This report shows available security patches and updates for dependencies.
+        
+        ## Critical Security Updates
+        Run `pip-audit` to see critical vulnerabilities.
+        
+        ## Recommended Actions
+        1. Review critical security updates immediately
+        2. Test updates in development environment
+        3. Apply patches using `pip install --upgrade <package>`
+        4. Update requirements.txt with new versions
+        
+        ## Automated Updates
+        - Dependabot will create PRs for dependency updates
+        - Security workflows run daily
+        - Manual patch review recommended for production
+        EOF
+        
+    - name: Upload reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-patch-reports
+        path: |
+          safety-report.json
+          audit-report.json
+          outdated.json
+          patch-report.md
+          
+    - name: Create issue for critical vulnerabilities
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Security Vulnerabilities Detected',
+            body: 'Security scan detected vulnerabilities. Please review the artifact reports and apply necessary patches.',
+            labels: ['security', 'critical']
+          })
