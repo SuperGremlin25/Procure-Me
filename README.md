@@ -16,8 +16,8 @@ A Python-based Streamlit application that automates vendor quote processing with
 2. Select the sheet containing the data (e.g., "Vendor Quote Sheet")
 3. The app automatically:
    - Extracts vendor unit costs
-   - Adds 10% margin
-   - Adds 8.25% tax
+   - Adds 10% - 50% margin (sliding qalculator) 
+   - Adds 0% - 10% tax (sliding calculator) 
    - Creates composite unit rates
 4. Download clean client-ready spreadsheets
 
@@ -71,9 +71,6 @@ It also supports generic Excel formats with automatic column detection.
 ```
 Composite Unit Rate = Vendor Cost × (1 + Margin) × (1 + Tax)
 
-Default values:
-- Margin: 10%
-- Tax: 8.25%
 ```
 
 ## Project Structure
