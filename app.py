@@ -19,6 +19,12 @@ from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
 from src.pdf_parser import PDFParser
 
+AMAZON_AFFILIATE_DISCLOSURE = (
+    "⚠️ **Affiliate Disclosure:** As an Amazon Associate, "
+    "Procure-Me earns from qualifying purchases. "
+    "Some links on this site may be Amazon affiliate links."
+)
+
 
 def _detect_columns(df: pd.DataFrame) -> dict:
     """
@@ -278,6 +284,7 @@ def main():
         st.markdown("Made with ❤️ by Digital Insurgent Media")
     
     st.caption("v1.0.0 | MIT License | No data is stored or transmitted")
+    st.caption(AMAZON_AFFILIATE_DISCLOSURE)
 
 
 def process_quote_tab(materials_db):
@@ -330,7 +337,10 @@ def process_quote_tab(materials_db):
         "📋 [Take our 2-min survey](https://github.com/SuperGremlin25/Procure-Me/issues) for a chance to get early access to premium features!",
         unsafe_allow_html=True
     )
-    
+
+    st.sidebar.markdown("---")
+    st.sidebar.caption(AMAZON_AFFILIATE_DISCLOSURE)
+
     # First-time user helper
     if 'files_processed' not in st.session_state:
         st.session_state.files_processed = 0
