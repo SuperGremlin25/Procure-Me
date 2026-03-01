@@ -336,6 +336,37 @@ def process_quote_tab(materials_db):
     if 'files_processed' not in st.session_state:
         st.session_state.files_processed = 0
     
+    # ── PROJECT TYPE SELECTION ────────────────────────────
+    st.markdown('<h2 class="section-header">Select Quote Type</h2>', 
+                unsafe_allow_html=True)
+    
+    st.markdown("""
+    **What type of quote are you processing?**
+    
+    Choose the quote type that matches your vendor document:
+    """)
+    
+    project_type = st.radio(
+        "Quote Type:",
+        options=["📦 Materials Only", "👷 Labor Only", "🏗️ Full Build (Materials + Labor)"],
+        index=0,
+        help="Select what type of quote you're uploading",
+        horizontal=True
+    )
+    
+    # Store in session state
+    if project_type == "📦 Materials Only":
+        st.session_state['quote_type'] = "materials"
+        st.info("**Materials Quote** - You'll upload vendor pricing for materials (conduit, cable, hardware, etc.)")
+    elif project_type == "👷 Labor Only":
+        st.session_state['quote_type'] = "labor"
+        st.info("**Labor Estimate** - You'll enter labor tasks, hours, and rates")
+    else:
+        st.session_state['quote_type'] = "full_build"
+        st.info("**Full Build Quote** - Combined materials and labor for complete project pricing")
+    
+    st.markdown("---")
+    
     # File upload section
     st.markdown('<h2 class="section-header">Upload Vendor Quote</h2>', 
                 unsafe_allow_html=True)
