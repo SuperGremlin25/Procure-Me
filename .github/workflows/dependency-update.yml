@@ -91,7 +91,7 @@ with open('requirements.txt', 'w') as f:
         delete-branch: true
         
     - name: Upload dependency report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-report
         path: |
