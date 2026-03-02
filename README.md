@@ -4,11 +4,11 @@ A Python-based Streamlit application that automates vendor quote processing with
 
 ## Features
 
-- 📊 **Excel File Processing**: Upload and parse vendor quote Excel files
-- 💰 **Automatic Calculations**: Apply margin (10%) and tax (8.25%) to vendor costs
-- 🧾 **Clean Client Output**: Generate client-facing quotes without tax breakdown
-- 🎛️ **Configurable Rates**: Adjust tax and margin rates as needed
-- 📱 **Web Interface**: Easy-to-use Streamlit web app
+- **Excel File Processing**: Upload and parse vendor quote Excel files
+- **Automatic Calculations**: Apply margin (10%) and tax (8.25%) to vendor costs
+- **Clean Client Output**: Generate client-facing quotes without tax breakdown
+- **Configurable Rates**: Adjust tax and margin rates as needed
+- **Web Interface**: Easy-to-use Streamlit web app
 
 ## How It Works
 
@@ -16,7 +16,7 @@ A Python-based Streamlit application that automates vendor quote processing with
 2. Select the sheet containing the data (e.g., "Vendor Quote Sheet")
 3. The app automatically:
    - Extracts vendor unit costs
-   - Adds 10% - 50% margin (sliding qalculator) 
+   - Adds 0% - 50% margin (sliding calculator) 
    - Adds 0% - 10% tax (sliding calculator) 
    - Creates composite unit rates
 4. Download clean client-ready spreadsheets
@@ -45,7 +45,7 @@ streamlit run app.py
 ```bash
 streamlit run app.py
 ```
-Then open http://localhost:8501 in your browser.
+Then open http://localhost in your browser.
 
 ### Deployment to Streamlit Cloud
 
