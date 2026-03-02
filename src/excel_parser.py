@@ -21,6 +21,51 @@ class ExcelParser:
         """Initialize the ExcelParser."""
         self.supported_formats = ['Vendor Quote Sheet']
     
+    def detect_duplicate_columns(self, df: pd.DataFrame) -> Dict[str, List[int]]:
+        """
+        Detect duplicate column names in DataFrame.
+        
+        Args:
+            df: DataFrame to check
+            
+        Returns:
+            Dictionary mapping duplicate column names to list of column indices
+        """
+        cols = df.columns.tolist()
+        duplicates = {}
+        
+        for col in set(cols):
+            indices = [i for i, c in enumerate(cols) if c == col]
+            if len(indices) > 1:
+                duplicates[col] = indices
+        
+        return duplicates
+    
+    def rename_duplicate_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Rename duplicate columns by appending .1, .2, etc. suffixes.
+        
+        Args:
+            df: DataFrame with potential duplicate columns
+            
+        Returns:
+            DataFrame with unique column names
+        """
+        cols = df.columns.tolist()
+        new_cols = []
+        seen = {}
+        
+        for col in cols:
+            if col in seen:
+                seen[col] += 1
+                new_cols.append(f"{col}.{seen[col]}")
+            else:
+                seen[col] = 0
+                new_cols.append(col)
+        
+        df.columns = new_cols
+        return df
+    
     def detect_format(self, file_path: str) -> Tuple[str, List[str]]:
         """
         Detect the spreadsheet format and return available sheets.
@@ -182,7 +227,7 @@ class ExcelParser:
             file_path: Path to the Excel file
             
         Returns:
-            Dictionary with sheet information
+            Dictionary with sheet information including duplicate detection
         """
         try:
             xl_file = pd.ExcelFile(file_path)
@@ -192,10 +237,14 @@ class ExcelParser:
                 # Read first few rows to get column info
                 df_sample = pd.read_excel(file_path, sheet_name=sheet_name, nrows=5)
                 
+                # Detect duplicate columns
+                duplicates = self.detect_duplicate_columns(df_sample)
+                
                 sheet_info[sheet_name] = {
                     'columns': df_sample.columns.tolist(),
                     'row_count': len(pd.read_excel(file_path, sheet_name=sheet_name)),
-                    'has_data': not df_sample.empty
+                    'has_data': not df_sample.empty,
+                    'duplicates': duplicates
                 }
             
             return sheet_info
