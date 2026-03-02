@@ -689,7 +689,20 @@ def process_quote_tab(materials_db):
                 help="Enter the shipping cost for this job. Added as a flat line item — no markup applied."
             )
             
-            # ── Step 4: Process Quote ─────────────────────────────
+            # ── Step 4: Project Name ──────────────────────────────
+            st.markdown('<h3>Name Your Project</h3>', unsafe_allow_html=True)
+            project_name = st.text_input(
+                "Project Name",
+                placeholder="e.g., Starlord, Main Street Fiber, Site 42...",
+                help="This name will be used as the filename prefix for all downloads",
+                value="Quote"
+            )
+            
+            # Clean project name for use in filenames
+            safe_project_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in project_name)
+            safe_project_name = safe_project_name.replace(' ', '_')
+            
+            # ── Step 5: Process Quote ─────────────────────────────
             if st.button("Process Quote", type="primary"):
                 processor = PricingProcessor(
                     tax_rate=tax_rate,
@@ -744,7 +757,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Audit (.xlsx)",
                         data=audit_buffer.getvalue(),
-                        file_name="internal_audit_quote.xlsx",
+                        file_name=f"{safe_project_name}_internal_audit.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
@@ -757,7 +770,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Client (.xlsx)",
                         data=client_buffer.getvalue(),
-                        file_name="client_quote.xlsx",
+                        file_name=f"{safe_project_name}_client_quote.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
@@ -815,7 +828,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Combined (.xlsx)",
                         data=combined_buffer.getvalue(),
-                        file_name="quote_complete.xlsx",
+                        file_name=f"{safe_project_name}_quote_complete.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
@@ -827,7 +840,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Summary (.md)",
                         data=md_report,
-                        file_name="quote_summary.md",
+                        file_name=f"{safe_project_name}_summary.md",
                         mime="text/markdown"
                     )
                 
@@ -840,7 +853,7 @@ def process_quote_tab(materials_db):
                         st.download_button(
                             label="📥 Summary (.docx)",
                             data=docx_bytes,
-                            file_name="quote_summary.docx",
+                            file_name=f"{safe_project_name}_summary.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         )
                     except ImportError:
@@ -858,7 +871,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Cleaned (.xlsx)",
                         data=cleaned_buffer.getvalue(),
-                        file_name="cleaned_data.xlsx",
+                        file_name=f"{safe_project_name}_cleaned_data.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         help="Raw cleaned data before pricing calculations"
                     )
@@ -869,7 +882,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Cleaned (.csv)",
                         data=cleaned_csv,
-                        file_name="cleaned_data.csv",
+                        file_name=f"{safe_project_name}_cleaned_data.csv",
                         mime="text/csv",
                         help="Raw cleaned data in CSV format"
                     )
@@ -880,7 +893,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Audit (.csv)",
                         data=audit_csv,
-                        file_name="internal_audit.csv",
+                        file_name=f"{safe_project_name}_internal_audit.csv",
                         mime="text/csv",
                         help="Internal audit trail in CSV format"
                     )
@@ -891,7 +904,7 @@ def process_quote_tab(materials_db):
                     st.download_button(
                         label="📥 Client (.csv)",
                         data=client_csv,
-                        file_name="client_quote.csv",
+                        file_name=f"{safe_project_name}_client_quote.csv",
                         mime="text/csv",
                         help="Client quote in CSV format"
                     )
