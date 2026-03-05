@@ -16,6 +16,144 @@ import os
 import tempfile
 from typing import Optional, Dict, Any, Tuple, List
 from io import BytesIO
+from enum import Enum
+
+
+class CalculationMethod(Enum):
+    """How margin and tax are calculated"""
+    MARGIN_THEN_TAX = "margin_then_tax"           # Current default: Cost × (1+Margin) × (1+Tax)
+    TAX_SEPARATE = "tax_separate"                  # Government standard: (Cost × (1+Margin)) + (Cost × Tax)
+    ADDITIVE = "additive"                          # Simplest: Cost × (1 + Margin + Tax)
+    COST_PLUS_FIXED_FEE = "cost_plus_fee"         # Transparent: Cost + Tax + Fixed Fee
+
+
+class InvoiceFormat(Enum):
+    """How the invoice is presented"""
+    DETAILED_AUDIT = "detailed_audit"              # Current format with full audit trail
+    FAR_COMPLIANT = "far_compliant"                # Government contract format
+    GRANT_COMPLIANCE = "grant_compliance"          # ARPA/BEAD specific
+    CLEAN_CLIENT = "clean_client"                  # No breakdown shown
+    COMBO = "combo"                                # Both audit + clean
+
+
+class TradeType(Enum):
+    """Construction trade for preset suggestions"""
+    TELECOM_FIBER = "telecom"
+    GENERAL_CONTRACTOR = "general_contractor"
+    CIVIL_INFRASTRUCTURE = "civil"
+    ELECTRICAL = "electrical"
+    PLUMBING_HVAC = "plumbing_hvac"
+    CONCRETE = "concrete"
+    HOME_BUILDING = "home_building"
+    HEAVY_EQUIPMENT = "equipment"
+    GENERAL_CONSTRUCTION = "general"
+
+
+class ComplianceMode(Enum):
+    """Quick preset configurations"""
+    COMMERCIAL = "commercial"
+    GOVERNMENT_GRANT = "grant"
+    GOVERNMENT_CONTRACT = "contract"
+    CUSTOM = "custom"
+
+
+# Trade-specific preset configurations
+TRADE_PRESETS = {
+    TradeType.TELECOM_FIBER: {
+        'suggested_margin_min': 0.25,
+        'suggested_margin_max': 0.30,
+        'default_margin': 0.25,
+        'government_margin': 0.15,
+        'common_uoms': ['LF', 'EA', 'HR'],
+        'description': 'Telecom / Fiber Optic'
+    },
+    TradeType.GENERAL_CONTRACTOR: {
+        'suggested_margin_min': 0.30,
+        'suggested_margin_max': 0.35,
+        'default_margin': 0.33,
+        'government_margin': 0.15,
+        'common_uoms': ['LS', 'EA', 'SF'],
+        'description': 'General Contractor / Commercial'
+    },
+    TradeType.CIVIL_INFRASTRUCTURE: {
+        'suggested_margin_min': 0.20,
+        'suggested_margin_max': 0.25,
+        'default_margin': 0.20,
+        'government_margin': 0.15,
+        'common_uoms': ['CY', 'SY', 'TON'],
+        'description': 'Civil / Infrastructure'
+    },
+    TradeType.ELECTRICAL: {
+        'suggested_margin_min': 0.30,
+        'suggested_margin_max': 0.35,
+        'default_margin': 0.30,
+        'government_margin': 0.18,
+        'common_uoms': ['LF', 'EA', 'HR'],
+        'description': 'Electrical'
+    },
+    TradeType.PLUMBING_HVAC: {
+        'suggested_margin_min': 0.35,
+        'suggested_margin_max': 0.40,
+        'default_margin': 0.35,
+        'government_margin': 0.20,
+        'common_uoms': ['LF', 'EA', 'HR'],
+        'description': 'Plumbing / HVAC'
+    },
+    TradeType.CONCRETE: {
+        'suggested_margin_min': 0.20,
+        'suggested_margin_max': 0.25,
+        'default_margin': 0.20,
+        'government_margin': 0.15,
+        'common_uoms': ['CY', 'SF', 'LF'],
+        'description': 'Concrete'
+    },
+    TradeType.HOME_BUILDING: {
+        'suggested_margin_min': 0.25,
+        'suggested_margin_max': 0.35,
+        'default_margin': 0.30,
+        'government_margin': 0.18,
+        'common_uoms': ['SF', 'LF', 'EA'],
+        'description': 'Home Building / Residential'
+    },
+    TradeType.HEAVY_EQUIPMENT: {
+        'suggested_margin_min': 0.20,
+        'suggested_margin_max': 0.30,
+        'default_margin': 0.25,
+        'government_margin': 0.15,
+        'common_uoms': ['HR', 'DAY', 'WK'],
+        'description': 'Heavy Equipment / Rental'
+    },
+    TradeType.GENERAL_CONSTRUCTION: {
+        'suggested_margin_min': 0.25,
+        'suggested_margin_max': 0.30,
+        'default_margin': 0.25,
+        'government_margin': 0.15,
+        'common_uoms': ['LS', 'EA', 'SF'],
+        'description': 'General Construction'
+    }
+}
+
+
+def margin_to_markup(margin_pct: float) -> float:
+    """Convert gross margin % to markup %.
+    
+    Formula: Markup = Margin / (1 - Margin)
+    
+    Example: 33% margin → 49.3% markup
+    """
+    if margin_pct >= 1.0:
+        raise ValueError("Margin cannot be >= 100%")
+    return margin_pct / (1 - margin_pct)
+
+
+def markup_to_margin(markup_pct: float) -> float:
+    """Convert markup % to gross margin %.
+    
+    Formula: Margin = Markup / (1 + Markup)
+    
+    Example: 49.3% markup → 33% margin
+    """
+    return markup_pct / (1 + markup_pct)
 
 
 class PricingProcessor:
@@ -26,23 +164,167 @@ class PricingProcessor:
         tax_rate (float): Tax rate as decimal (default: 0.0825 for 8.25%)
         margin_rate (float): Margin/markup rate as decimal (default: 0.10 for 10%)
         shipping_cost (float): Pass-through shipping cost (default: 0.00)
+        calculation_method (CalculationMethod): How margin and tax are calculated
+        invoice_format (InvoiceFormat): How the invoice is presented
+        trade_type (TradeType): Construction trade for preset suggestions
+        fixed_fee (float): Fixed fee for cost-plus contracts (default: 0.0)
+        is_gross_margin (bool): If True, margin_rate is gross margin %; if False, it's markup %
     """
     
-    def __init__(self, tax_rate: float = 0.0825, margin_rate: float = 0.10,
-                 shipping_cost: float = 0.0):
+    def __init__(self, 
+                 tax_rate: float = 0.0825, 
+                 margin_rate: float = 0.10,
+                 shipping_cost: float = 0.0,
+                 calculation_method: CalculationMethod = CalculationMethod.MARGIN_THEN_TAX,
+                 invoice_format: InvoiceFormat = InvoiceFormat.DETAILED_AUDIT,
+                 trade_type: TradeType = TradeType.TELECOM_FIBER,
+                 fixed_fee: float = 0.0,
+                 is_gross_margin: bool = False):
         self.tax_rate = tax_rate
-        self.margin_rate = margin_rate
+        self.is_gross_margin = is_gross_margin
+        
+        # Convert gross margin to markup if needed
+        if is_gross_margin:
+            self.gross_margin_rate = margin_rate
+            self.margin_rate = margin_to_markup(margin_rate)
+        else:
+            self.margin_rate = margin_rate
+            self.gross_margin_rate = markup_to_margin(margin_rate)
+        
         self.shipping_cost = shipping_cost
+        self.calculation_method = calculation_method
+        self.invoice_format = invoice_format
+        self.trade_type = trade_type
+        self.fixed_fee = fixed_fee
     
-    def calculate_composite_rate(self, unit_cost: float) -> float:
+    def calculate_composite_rate(self, unit_cost: float) -> dict:
         """
-        Calculate the composite unit rate: unit_cost × (1 + margin) × (1 + tax).
-        All-in price per unit — margin first, then tax baked in.
+        Calculate pricing using selected method and return detailed breakdown.
+        
+        Returns dict with:
+            - base_cost: Original unit cost
+            - margin_dollars: Dollar amount of margin
+            - tax_dollars: Dollar amount of tax
+            - composite_rate: Final unit rate
+            - method: Calculation method name
+            - formula_text: Human-readable formula
+            - breakdown_text: Step-by-step calculation
         """
         if pd.isna(unit_cost) or unit_cost == 0:
-            return 0.0
-        composite_rate = unit_cost * (1 + self.margin_rate) * (1 + self.tax_rate)
-        return round(composite_rate, 4)
+            return self._empty_result()
+        
+        # Route to appropriate calculation method
+        if self.calculation_method == CalculationMethod.MARGIN_THEN_TAX:
+            return self._calc_margin_then_tax(unit_cost)
+        elif self.calculation_method == CalculationMethod.TAX_SEPARATE:
+            return self._calc_tax_separate(unit_cost)
+        elif self.calculation_method == CalculationMethod.ADDITIVE:
+            return self._calc_additive(unit_cost)
+        elif self.calculation_method == CalculationMethod.COST_PLUS_FIXED_FEE:
+            return self._calc_cost_plus(unit_cost)
+        else:
+            # Default to current behavior
+            return self._calc_margin_then_tax(unit_cost)
+    
+    def _empty_result(self) -> dict:
+        """Return empty result for zero/NA costs."""
+        return {
+            'base_cost': 0.0,
+            'margin_dollars': 0.0,
+            'tax_dollars': 0.0,
+            'composite_rate': 0.0,
+            'method': self.calculation_method.value,
+            'formula_text': 'N/A',
+            'breakdown_text': 'No cost'
+        }
+    
+    def _calc_margin_then_tax(self, cost: float) -> dict:
+        """Current default: Cost × (1+Margin) × (1+Tax)"""
+        after_margin = cost * (1 + self.margin_rate)
+        margin_dollars = cost * self.margin_rate
+        tax_dollars = after_margin * self.tax_rate
+        composite = after_margin + tax_dollars
+        
+        return {
+            'base_cost': cost,
+            'margin_dollars': round(margin_dollars, 2),
+            'tax_dollars': round(tax_dollars, 2),
+            'composite_rate': round(composite, 2),
+            'method': 'Margin-Then-Tax',
+            'formula_text': f'${cost:.2f} × (1+{self.margin_rate:.2%}) × (1+{self.tax_rate:.2%})',
+            'breakdown_text': (
+                f"Cost: ${cost:.2f} → "
+                f"After Margin: ${after_margin:.2f} → "
+                f"Tax on ${after_margin:.2f}: ${tax_dollars:.2f} → "
+                f"Total: ${composite:.2f}"
+            )
+        }
+    
+    def _calc_tax_separate(self, cost: float) -> dict:
+        """Government standard: (Cost × (1+Margin)) + (Cost × Tax)"""
+        margin_dollars = cost * self.margin_rate
+        tax_dollars = cost * self.tax_rate  # Tax on ORIGINAL cost
+        composite = cost + margin_dollars + tax_dollars
+        
+        return {
+            'base_cost': cost,
+            'margin_dollars': round(margin_dollars, 2),
+            'tax_dollars': round(tax_dollars, 2),
+            'composite_rate': round(composite, 2),
+            'method': 'Tax-Separate (Government Standard)',
+            'formula_text': f'(${cost:.2f} × (1+{self.margin_rate:.2%})) + (${cost:.2f} × {self.tax_rate:.2%})',
+            'breakdown_text': (
+                f"Cost: ${cost:.2f} → "
+                f"Margin: ${margin_dollars:.2f} → "
+                f"Tax on original cost: ${tax_dollars:.2f} → "
+                f"Total: ${composite:.2f}"
+            )
+        }
+    
+    def _calc_additive(self, cost: float) -> dict:
+        """Simplest: Cost × (1 + Margin% + Tax%)"""
+        margin_dollars = cost * self.margin_rate
+        tax_dollars = cost * self.tax_rate
+        composite = cost * (1 + self.margin_rate + self.tax_rate)
+        
+        return {
+            'base_cost': cost,
+            'margin_dollars': round(margin_dollars, 2),
+            'tax_dollars': round(tax_dollars, 2),
+            'composite_rate': round(composite, 2),
+            'method': 'Additive',
+            'formula_text': f'${cost:.2f} × (1 + {self.margin_rate:.2%} + {self.tax_rate:.2%})',
+            'breakdown_text': (
+                f"Cost: ${cost:.2f} × "
+                f"(1 + {self.margin_rate*100:.1f}% + {self.tax_rate*100:.2f}%) = "
+                f"${composite:.2f}"
+            )
+        }
+    
+    def _calc_cost_plus(self, cost: float) -> dict:
+        """Cost-Plus: Cost + Tax + Fixed Fee (per item or project)"""
+        tax_dollars = cost * self.tax_rate
+        composite = cost + tax_dollars
+        # Fixed fee usually added at project level, not per item
+        
+        return {
+            'base_cost': cost,
+            'margin_dollars': 0,  # Fee shown separately
+            'tax_dollars': round(tax_dollars, 2),
+            'composite_rate': round(composite, 2),
+            'method': 'Cost-Plus-Fixed-Fee',
+            'formula_text': f'${cost:.2f} + ${tax_dollars:.2f} + Fixed Fee',
+            'breakdown_text': (
+                f"Cost: ${cost:.2f} → "
+                f"Tax: ${tax_dollars:.2f} → "
+                f"Subtotal: ${composite:.2f} (+ ${self.fixed_fee:.2f} project fee)"
+            )
+        }
+    
+    def get_composite_rate_value(self, unit_cost: float) -> float:
+        """Legacy method: returns just the composite rate as float for backward compatibility."""
+        result = self.calculate_composite_rate(unit_cost)
+        return result['composite_rate']
     
     # ------------------------------------------------------------------
     # Data cleaning
@@ -252,8 +534,9 @@ class PricingProcessor:
         Reads column mappings from df.attrs (set by clean_vendor_quote).
         
         Adds:
-          - Composite Unit Rate = unit_cost × (1 + margin) × (1 + tax)
+          - Composite Unit Rate = calculated based on selected method
           - Total Price = Composite Unit Rate × Quantity
+          - Calculation details (method, formula) stored in additional columns
         """
         processed_df = df.copy()
         
@@ -269,14 +552,20 @@ class PricingProcessor:
         processed_df[cost_col] = pd.to_numeric(processed_df[cost_col], errors='coerce').fillna(0)
         processed_df[qty_col] = pd.to_numeric(processed_df[qty_col], errors='coerce').fillna(0)
         
-        # Calculate composite rate and total
+        # Calculate composite rate using selected method
+        # calculate_composite_rate now returns a dict, extract the composite_rate value
         processed_df['Composite Unit Rate'] = processed_df[cost_col].apply(
-            self.calculate_composite_rate
+            lambda cost: self.calculate_composite_rate(cost)['composite_rate']
         )
         
         processed_df['Total Price'] = (
             processed_df[qty_col] * processed_df['Composite Unit Rate']
         ).round(2)
+        
+        # Store calculation details for audit trail
+        calc_details = processed_df[cost_col].apply(self.calculate_composite_rate)
+        processed_df['_calc_method'] = calc_details.apply(lambda x: x['method'])
+        processed_df['_formula_text'] = calc_details.apply(lambda x: x['formula_text'])
         
         # Preserve all attrs for downstream methods
         processed_df.attrs = df.attrs.copy()
@@ -317,11 +606,14 @@ class PricingProcessor:
             quantity = float(pd.to_numeric(row[qty_col], errors='coerce') or 0)
             unit_cost = float(pd.to_numeric(row.get(cost_col, 0), errors='coerce') or 0) if cost_col else 0.0
             
-            # Dollar-based calculations
-            margin_dollars = round(unit_cost * margin_rate, 2)
+            # Calculate using selected method
+            calc_result = self.calculate_composite_rate(unit_cost)
+            margin_dollars = calc_result['margin_dollars']
+            tax_dollars = calc_result['tax_dollars']
+            composite_rate = calc_result['composite_rate']
+            
+            # For audit trail, also calculate after_margin for display
             after_margin = round(unit_cost + margin_dollars, 2)
-            tax_dollars = round(after_margin * tax_rate, 2)
-            composite_rate = round(after_margin + tax_dollars, 2)
             line_total = round(composite_rate * quantity, 2)
             
             # Build row with optional columns
@@ -353,15 +645,9 @@ class PricingProcessor:
                 if pd.notna(vendor_total):
                     audit_row['Vendor Total (from PDF)'] = float(vendor_total)
             
-            # Add Formula column showing calculation steps as text
-            formula_text = (
-                f"Margin: ${unit_cost:.2f} × {margin_rate} = ${margin_dollars:.2f} | "
-                f"After: ${unit_cost:.2f} + ${margin_dollars:.2f} = ${after_margin:.2f} | "
-                f"Tax: ${after_margin:.2f} × {tax_rate} = ${tax_dollars:.2f} | "
-                f"Composite: ${after_margin:.2f} + ${tax_dollars:.2f} = ${composite_rate:.2f} | "
-                f"Total: ${composite_rate:.2f} × {quantity} = ${line_total:.2f}"
-            )
-            audit_row['Formula'] = formula_text
+            # Add calculation method and formula
+            audit_row['Calculation Method'] = calc_result['method']
+            audit_row['Formula'] = calc_result['breakdown_text'] + f" | Total: ${composite_rate:.2f} × {quantity} = ${line_total:.2f}"
             
             audit_data.append(audit_row)
         

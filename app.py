@@ -14,7 +14,16 @@ import os
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.pricing_calculator import PricingProcessor
+from src.pricing_calculator import (
+    PricingProcessor,
+    CalculationMethod,
+    InvoiceFormat,
+    TradeType,
+    ComplianceMode,
+    TRADE_PRESETS,
+    margin_to_markup,
+    markup_to_margin
+)
 from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
 from src.pdf_parser import PDFParser
@@ -302,27 +311,188 @@ def main():
 def process_quote_tab(materials_db):
     """Process uploaded quote files."""
     # Sidebar for settings
-    st.sidebar.markdown('<h2 class="section-header">Settings</h2>', 
+    st.sidebar.markdown('<h2 class="section-header">Pricing Configuration</h2>', 
                         unsafe_allow_html=True)
     
-    # Tax and margin settings
+    # Quick Start Mode Selector
+    st.sidebar.markdown("### Quick Start")
+    compliance_mode = st.sidebar.selectbox(
+        "What are you pricing?",
+        options=[
+            ComplianceMode.COMMERCIAL.value,
+            ComplianceMode.GOVERNMENT_GRANT.value,
+            ComplianceMode.GOVERNMENT_CONTRACT.value,
+            ComplianceMode.CUSTOM.value
+        ],
+        format_func=lambda x: {
+            "commercial": "Commercial Job (standard pricing)",
+            "grant": "Government Grant (ARPA/BEAD compliance)",
+            "contract": "Direct Government Contract (FAR compliance)",
+            "custom": "Custom (advanced settings)"
+        }[x],
+        help="Loads preset configuration for common scenarios"
+    )
+    
+    # Trade Type Selector
+    trade_type = st.sidebar.selectbox(
+        "Type of work",
+        options=[t.value for t in TradeType],
+        format_func=lambda x: TRADE_PRESETS[TradeType(x)]['description'],
+        index=0,  # Default to Telecom
+        help="Loads suggested margin ranges for this trade"
+    )
+    trade_type_enum = TradeType(trade_type)
+    trade_preset = TRADE_PRESETS[trade_type_enum]
+    
+    # Determine default margin based on mode
+    if compliance_mode in [ComplianceMode.GOVERNMENT_GRANT.value, ComplianceMode.GOVERNMENT_CONTRACT.value]:
+        default_margin = trade_preset['government_margin']
+    else:
+        default_margin = trade_preset['default_margin']
+    
+    # Margin Configuration
+    st.sidebar.markdown("### Contractor Margin")
+    
+    # Gross Margin toggle
+    is_gross_margin = st.sidebar.checkbox(
+        "Enter as Gross Margin %",
+        value=True,
+        help="If checked, enter your target gross margin (profit/revenue). Tool will calculate required markup automatically."
+    )
+    
+    margin_label = "Target Gross Margin (%)" if is_gross_margin else "Markup (%)"
+    margin_help = (
+        f"Your target gross margin. Suggested range: {trade_preset['suggested_margin_min']*100:.0f}%-{trade_preset['suggested_margin_max']*100:.0f}%"
+        if is_gross_margin else
+        "Markup percentage to add to costs"
+    )
+    
+    margin_value = st.sidebar.slider(
+        margin_label,
+        min_value=5.0,
+        max_value=50.0,
+        value=default_margin * 100,
+        step=1.0,
+        help=margin_help
+    )
+    
+    margin_rate = margin_value / 100
+    
+    # Show conversion if in gross margin mode
+    if is_gross_margin:
+        required_markup = margin_to_markup(margin_rate) * 100
+        st.sidebar.caption(f"✓ Required markup: {required_markup:.1f}%")
+        if margin_rate == 0.33:
+            st.sidebar.caption("ℹ️ 33% is a common GC target")
+    
+    # Show suggested range
+    if compliance_mode in [ComplianceMode.GOVERNMENT_GRANT.value, ComplianceMode.GOVERNMENT_CONTRACT.value]:
+        if margin_rate > 0.15:
+            st.sidebar.warning("⚠️ Government contracts typically question margins above 15%")
+    else:
+        suggested_min = trade_preset['suggested_margin_min'] * 100
+        suggested_max = trade_preset['suggested_margin_max'] * 100
+        if margin_rate * 100 < suggested_min or margin_rate * 100 > suggested_max:
+            st.sidebar.info(f"ℹ️ Typical range for {trade_preset['description']}: {suggested_min:.0f}%-{suggested_max:.0f}%")
+    
+    # Tax Rate
+    st.sidebar.markdown("### Sales Tax")
     tax_rate = st.sidebar.slider(
         "Tax Rate (%)",
         min_value=0.0,
         max_value=20.0,
         value=8.25,
         step=0.25,
-        help="Tax rate to apply to marked-up prices"
+        help="Sales tax rate on materials"
     ) / 100
     
-    margin_rate = st.sidebar.slider(
-        "Margin Rate (%)",
-        min_value=0.0,
-        max_value=50.0,
-        value=10.0,
-        step=1.0,
-        help="Margin/markup rate to apply to vendor costs"
-    ) / 100
+    # Advanced Settings (Custom Mode Only)
+    if compliance_mode == ComplianceMode.CUSTOM.value:
+        with st.sidebar.expander("⚙️ Advanced Calculation Settings"):
+            st.markdown("**Calculation Method**")
+            calc_method = st.selectbox(
+                "How to calculate pricing:",
+                options=[m.value for m in CalculationMethod],
+                format_func=lambda x: {
+                    "margin_then_tax": "Margin-Then-Tax (default)",
+                    "tax_separate": "Tax-Separate (government standard)",
+                    "additive": "Additive (simplest)",
+                    "cost_plus_fee": "Cost-Plus-Fixed-Fee"
+                }[x],
+                index=0,
+                help="Different calculation methods for different business models"
+            )
+            calculation_method = CalculationMethod(calc_method)
+            
+            if calc_method == "cost_plus_fee":
+                fixed_fee = st.number_input(
+                    "Fixed Fee ($)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=100.0,
+                    help="Fixed dollar fee for cost-plus contracts"
+                )
+            else:
+                fixed_fee = 0.0
+            
+            st.markdown("**Invoice Format**")
+            inv_format = st.selectbox(
+                "Output format:",
+                options=[f.value for f in InvoiceFormat],
+                format_func=lambda x: {
+                    "detailed_audit": "Detailed Audit Trail (recommended)",
+                    "far_compliant": "FAR-Compliant Government",
+                    "grant_compliance": "Grant Compliance (ARPA/BEAD)",
+                    "clean_client": "Clean Client Invoice",
+                    "combo": "Combo (Audit + Clean)"
+                }[x],
+                index=0,
+                help="How the invoice is presented to the client"
+            )
+            invoice_format = InvoiceFormat(inv_format)
+    else:
+        # Auto-select based on compliance mode
+        if compliance_mode == ComplianceMode.GOVERNMENT_GRANT.value:
+            calculation_method = CalculationMethod.TAX_SEPARATE
+            invoice_format = InvoiceFormat.GRANT_COMPLIANCE
+            fixed_fee = 0.0
+        elif compliance_mode == ComplianceMode.GOVERNMENT_CONTRACT.value:
+            calculation_method = CalculationMethod.TAX_SEPARATE
+            invoice_format = InvoiceFormat.FAR_COMPLIANT
+            fixed_fee = 0.0
+        else:  # Commercial
+            calculation_method = CalculationMethod.MARGIN_THEN_TAX
+            invoice_format = InvoiceFormat.DETAILED_AUDIT
+            fixed_fee = 0.0
+    
+    # Show current configuration summary
+    with st.sidebar.expander("📊 Current Configuration Summary"):
+        st.write(f"**Mode:** {compliance_mode.title()}")
+        st.write(f"**Trade:** {trade_preset['description']}")
+        if is_gross_margin:
+            st.write(f"**Gross Margin:** {margin_rate*100:.1f}%")
+            st.write(f"**Markup:** {margin_to_markup(margin_rate)*100:.1f}%")
+        else:
+            st.write(f"**Markup:** {margin_rate*100:.1f}%")
+            st.write(f"**Gross Margin:** {markup_to_margin(margin_rate)*100:.1f}%")
+        st.write(f"**Tax:** {tax_rate*100:.2f}%")
+        st.write(f"**Calc Method:** {calculation_method.value.replace('_', ' ').title()}")
+        st.write(f"**Invoice Format:** {invoice_format.value.replace('_', ' ').title()}")
+        
+        # Example calculation
+        st.markdown("**Example: $100 item**")
+        processor = PricingProcessor(
+            tax_rate=tax_rate,
+            margin_rate=margin_rate,
+            calculation_method=calculation_method,
+            is_gross_margin=is_gross_margin,
+            fixed_fee=fixed_fee
+        )
+        result = processor.calculate_composite_rate(100.0)
+        st.write(f"Cost: $100.00")
+        st.write(f"Margin: ${result['margin_dollars']:.2f}")
+        st.write(f"Tax: ${result['tax_dollars']:.2f}")
+        st.write(f"**Total: ${result['composite_rate']:.2f}**")
     
     # Feedback Section
     st.sidebar.markdown("---")
@@ -689,7 +859,15 @@ def process_quote_tab(materials_db):
                 part_col = None if part_col_sel == '(None)' else part_col_sel
             
             # ── Step 2: Clean data & extract tax/freight ──────────
-            processor = PricingProcessor(tax_rate=tax_rate, margin_rate=margin_rate)
+            processor = PricingProcessor(
+                tax_rate=tax_rate,
+                margin_rate=margin_rate,
+                calculation_method=calculation_method,
+                invoice_format=invoice_format,
+                trade_type=trade_type_enum,
+                is_gross_margin=is_gross_margin,
+                fixed_fee=fixed_fee
+            )
             cleaned_df, extracted_tax, extracted_freight = processor.clean_vendor_quote(
                 df, desc_col=desc_col, qty_col=qty_col, cost_col=cost_col,
                 part_col=part_col, uom_col=uom_col, total_col=total_col
@@ -746,7 +924,12 @@ def process_quote_tab(materials_db):
                 processor = PricingProcessor(
                     tax_rate=tax_rate,
                     margin_rate=margin_rate,
-                    shipping_cost=shipping_cost
+                    shipping_cost=shipping_cost,
+                    calculation_method=calculation_method,
+                    invoice_format=invoice_format,
+                    trade_type=trade_type_enum,
+                    is_gross_margin=is_gross_margin,
+                    fixed_fee=fixed_fee
                 )
                 
                 processed_df = processor.process_quote(cleaned_df)
@@ -754,10 +937,13 @@ def process_quote_tab(materials_db):
                 st.markdown('<h2 class="section-header">Processed Quote</h2>', 
                             unsafe_allow_html=True)
                 
+                # Show calculation info based on method
+                example_calc = processor.calculate_composite_rate(100.0)
                 st.markdown(f"""
                 <div class="info-box">
-                    <strong>Calculation:</strong> Vendor Cost &times; (1 + {margin_rate*100:.1f}% margin) &times; (1 + {tax_rate*100:.2f}% tax) = Composite Unit Rate<br>
-                    <strong>Multiplier:</strong> {(1+margin_rate)*(1+tax_rate):.4f}x<br>
+                    <strong>Calculation Method:</strong> {example_calc['method']}<br>
+                    <strong>Formula:</strong> {example_calc['formula_text']}<br>
+                    <strong>Example ($100):</strong> Cost: $100.00 → Margin: ${example_calc['margin_dollars']:.2f} → Tax: ${example_calc['tax_dollars']:.2f} → Total: ${example_calc['composite_rate']:.2f}<br>
                     <strong>Shipping:</strong> ${shipping_cost:,.2f} (pass-through)
                 </div>
                 """, unsafe_allow_html=True)
