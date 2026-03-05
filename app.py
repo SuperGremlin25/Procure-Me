@@ -26,6 +26,7 @@ from src.pricing_calculator import (
 )
 from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
+from src.labor_db import LaborDatabase
 from src.pdf_parser import PDFParser
 from src.vendor_detector import VendorDetector
 
@@ -272,14 +273,18 @@ def main():
     data_file_path = os.path.join(os.path.dirname(__file__), "materials_data.json")
     materials_db = MaterialsDatabase(data_file_path)
     
+    # Initialize labor database with persistent storage
+    labor_file_path = os.path.join(os.path.dirname(__file__), "labor_data.json")
+    labor_db = LaborDatabase(labor_file_path)
+    
     # Main navigation
     tab1, tab2, tab3 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List"])
     
     with tab1:
-        process_quote_tab(materials_db)
+        process_quote_tab(materials_db, labor_db)
     
     with tab2:
-        build_quote_tab(materials_db)
+        build_quote_tab(materials_db, labor_db)
     
     with tab3:
         materials_list_tab(materials_db)
@@ -308,7 +313,7 @@ def main():
     st.caption("v1.0.0 | MIT License | No data is stored or transmitted")
 
 
-def process_quote_tab(materials_db):
+def process_quote_tab(materials_db, labor_db):
     """Process uploaded quote files."""
     # Sidebar for settings
     st.sidebar.markdown('<h2 class="section-header">Pricing Configuration</h2>', 
@@ -1442,7 +1447,7 @@ def process_quote_tab(materials_db):
                 pass
 
 
-def build_quote_tab(materials_db):
+def build_quote_tab(materials_db, labor_db):
     """Manual quote building tab."""
     st.markdown('<h2 class="section-header">Build Quote Manually</h2>', 
                 unsafe_allow_html=True)
@@ -1450,49 +1455,110 @@ def build_quote_tab(materials_db):
     # Get materials by category
     materials_by_category = materials_db.get_materials_by_category()
     
+    # Get labor tasks by category
+    labor_by_category = labor_db.get_tasks_by_category()
+    
     # Initialize session state for quote items
     if 'quote_items' not in st.session_state:
         st.session_state.quote_items = []
     
-    # Add items section
+    if 'labor_items' not in st.session_state:
+        st.session_state.labor_items = []
+    
+    # Add items section with tabs for Materials and Labor
     st.markdown('<h3>Add Items to Quote</h3>', unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    materials_tab, labor_tab = st.tabs(["📦 Materials", "👷 Labor"])
     
-    with col1:
-        # Material selection dropdown
-        category = st.selectbox("Select Category", list(materials_by_category.keys()))
-        materials_in_category = materials_by_category[category]
-        material_names = [m['name'] for m in materials_in_category]
-        selected_material = st.selectbox("Select Material", material_names)
+    # ──────────────────────────────────────────────────────────
+    # MATERIALS TAB
+    # ──────────────────────────────────────────────────────────
+    with materials_tab:
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            # Material selection dropdown
+            category = st.selectbox("Select Category", list(materials_by_category.keys()), key="mat_category")
+            materials_in_category = materials_by_category[category]
+            material_names = [m['name'] for m in materials_in_category]
+            selected_material = st.selectbox("Select Material", material_names, key="mat_select")
+        
+        with col2:
+            # Quantity input
+            quantity = st.number_input("Quantity", min_value=0, value=1, step=1, key="mat_qty")
+        
+        with col3:
+            # Add button
+            if st.button("Add to Quote", type="primary", key="add_material"):
+                material = materials_db.find_material(selected_material)
+                if material:
+                    # Clean the material name for display
+                    clean_name = materials_db._clean_material_name(material['name'])
+                    item = {
+                        'type': 'material',
+                        'name': clean_name,
+                        'part_number': material['part_number'],
+                        'quantity': quantity,
+                        'unit': material['unit'],
+                        'unit_cost': material['unit_cost'],
+                        'is_taxable': True
+                    }
+                    st.session_state.quote_items.append(item)
+                    st.success(f"Added {quantity} x {clean_name}")
+                    st.rerun()
     
-    with col2:
-        # Quantity input
-        quantity = st.number_input("Quantity", min_value=0, value=1, step=1)
+    # ──────────────────────────────────────────────────────────
+    # LABOR TAB
+    # ──────────────────────────────────────────────────────────
+    with labor_tab:
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+        
+        with col1:
+            # Labor task selection dropdown
+            labor_category = st.selectbox("Select Category", list(labor_by_category.keys()), key="labor_category")
+            tasks_in_category = labor_by_category[labor_category]
+            task_names = [t['name'] for t in tasks_in_category]
+            selected_task = st.selectbox("Select Task", task_names, key="labor_select")
+        
+        with col2:
+            # Quantity input (hours/days/each)
+            labor_qty = st.number_input("Quantity", min_value=0.0, value=1.0, step=0.5, key="labor_qty")
+        
+        with col3:
+            # Rate override
+            task = labor_db.find_task(selected_task)
+            default_rate = task['base_rate'] if task else 0.0
+            labor_rate = st.number_input("Rate", min_value=0.0, value=default_rate, step=1.0, key="labor_rate",
+                                        help="Override default rate if needed")
+        
+        with col4:
+            # Tax toggle
+            labor_taxable = st.checkbox("Taxable", value=False, key="labor_taxable",
+                                       help="Labor is usually tax-exempt")
+            
+            # Add button
+            if st.button("Add to Quote", type="primary", key="add_labor"):
+                if task:
+                    labor_item = {
+                        'type': 'labor',
+                        'name': task['name'],
+                        'part_number': None,
+                        'quantity': labor_qty,
+                        'unit': task['unit'],
+                        'unit_cost': labor_rate,
+                        'is_taxable': labor_taxable
+                    }
+                    st.session_state.labor_items.append(labor_item)
+                    st.success(f"Added {labor_qty} {task['unit']} of {task['name']}")
+                    st.rerun()
     
-    with col3:
-        # Add button
-        if st.button("Add to Quote", type="primary"):
-            material = materials_db.find_material(selected_material)
-            if material:
-                # Clean the material name for display
-                clean_name = materials_db._clean_material_name(material['name'])
-                item = {
-                    'name': clean_name,
-                    'part_number': material['part_number'],
-                    'quantity': quantity,
-                    'unit': material['unit'],
-                    'unit_cost': material['unit_cost']
-                }
-                st.session_state.quote_items.append(item)
-                st.success(f"Added {quantity} x {clean_name}")
-    
-    # Display quote items
-    if st.session_state.quote_items:
+    # Display quote items (materials + labor combined)
+    if st.session_state.quote_items or st.session_state.labor_items:
         st.markdown('<h3>Quote Items</h3>', unsafe_allow_html=True)
         
-        # Convert to DataFrame for display
-        quote_df = pd.DataFrame(st.session_state.quote_items)
+        # Combine materials and labor items
+        all_items = st.session_state.quote_items + st.session_state.labor_items
+        quote_df = pd.DataFrame(all_items)
         
         # Add calculations
         tax_rate = st.sidebar.slider("Tax Rate (%)", 0.0, 20.0, 8.25, 0.25) / 100
@@ -1500,27 +1566,50 @@ def build_quote_tab(materials_db):
         
         processor = PricingProcessor(tax_rate=tax_rate, margin_rate=margin_rate)
         
-        quote_df['composite_rate'] = quote_df['unit_cost'].apply(processor.calculate_composite_rate)
+        # Calculate composite rate and total for each item
+        def calculate_item_total(row):
+            result = processor.calculate_composite_rate(row['unit_cost'])
+            # If not taxable (labor), recalculate without tax
+            if not row.get('is_taxable', True):
+                # Apply only margin, no tax
+                margin_dollars = row['unit_cost'] * margin_rate
+                composite = row['unit_cost'] + margin_dollars
+            else:
+                composite = result['composite_rate']
+            return composite
+        
+        quote_df['composite_rate'] = quote_df.apply(calculate_item_total, axis=1)
         quote_df['total'] = (quote_df['quantity'] * quote_df['composite_rate']).round(2)
         
         # Display with formatting
-        display_df = quote_df[['name', 'quantity', 'unit', 'composite_rate', 'total']].copy()
-        display_df.columns = ['Description', 'Quantity', 'Unit', 'Unit Price', 'Total']
+        display_df = quote_df[['type', 'name', 'quantity', 'unit', 'composite_rate', 'total', 'is_taxable']].copy()
+        display_df.columns = ['Type', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total', 'Taxable']
+        display_df['Type'] = display_df['Type'].map({'material': '📦', 'labor': '👷'})
+        display_df['Taxable'] = display_df['Taxable'].map({True: '✓', False: '✗'})
         display_df['Unit Price'] = display_df['Unit Price'].map('${:,.2f}'.format)
         display_df['Total'] = display_df['Total'].map('${:,.2f}'.format)
         
         st.dataframe(display_df, use_container_width=True)
         
-        # Summary
+        # Summary with separate materials/labor breakdown
+        materials_total = quote_df[quote_df['type'] == 'material']['total'].sum() if 'material' in quote_df['type'].values else 0
+        labor_total = quote_df[quote_df['type'] == 'labor']['total'].sum() if 'labor' in quote_df['type'].values else 0
         total_amount = quote_df['total'].sum()
         
-        col1, col2, col3 = st.columns(3)
+        # Calculate tax breakdown
+        materials_cost = quote_df[quote_df['type'] == 'material']['unit_cost'].sum() if 'material' in quote_df['type'].values else 0
+        materials_tax = materials_cost * margin_rate * tax_rate if materials_cost > 0 else 0
+        labor_tax = 0  # Labor is tax-exempt by default
+        
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Subtotal (Cost)", f"${quote_df['unit_cost'].sum():,.2f}")
+            st.metric("Materials", f"${materials_total:,.2f}")
         with col2:
-            st.metric("With Margin & Tax", f"${total_amount:,.2f}")
+            st.metric("Labor", f"${labor_total:,.2f}")
         with col3:
-            st.metric("Items", len(quote_df))
+            st.metric("Total", f"${total_amount:,.2f}")
+        with col4:
+            st.metric("Tax (Materials only)", f"${materials_tax:,.2f}")
         
         # Download buttons
         col1, col2, col3 = st.columns(3)
@@ -1577,6 +1666,7 @@ def build_quote_tab(materials_db):
         # Clear button
         if st.button("Clear Quote", type="secondary"):
             st.session_state.quote_items = []
+            st.session_state.labor_items = []
             st.rerun()
 
 
