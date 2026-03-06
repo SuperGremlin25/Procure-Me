@@ -1587,6 +1587,13 @@ def build_quote_tab(materials_db, labor_db):
         quote_df['composite_rate'] = quote_df.apply(calculate_item_total, axis=1)
         quote_df['total'] = (quote_df['quantity'] * quote_df['composite_rate']).round(2)
         
+        # Set column attributes for download methods
+        quote_df.attrs['desc_col'] = 'name'
+        quote_df.attrs['qty_col'] = 'quantity'
+        quote_df.attrs['cost_col'] = 'unit_cost'
+        quote_df.attrs['part_col'] = 'part_number'
+        quote_df.attrs['uom_col'] = 'unit'
+        
         # Display with formatting
         display_df = quote_df[['type', 'name', 'quantity', 'unit', 'composite_rate', 'total', 'is_taxable']].copy()
         display_df.columns = ['Type', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total', 'Taxable']
