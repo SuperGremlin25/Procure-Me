@@ -1474,7 +1474,7 @@ def build_quote_tab(materials_db, labor_db):
     # MATERIALS TAB
     # ──────────────────────────────────────────────────────────
     with materials_tab:
-        col1, col2, col3 = st.columns([2, 1, 1])
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
         
         with col1:
             # Material selection dropdown
@@ -1488,9 +1488,15 @@ def build_quote_tab(materials_db, labor_db):
             quantity = st.number_input("Quantity", min_value=0, value=1, step=1, key="mat_qty")
         
         with col3:
+            # Unit cost override
+            material = materials_db.find_material(selected_material)
+            default_cost = material['unit_cost'] if material else 0.0
+            material_cost = st.number_input("Unit Cost", min_value=0.0, value=default_cost, step=0.01, key="mat_cost",
+                                           help="Override default cost if needed", format="%.2f")
+        
+        with col4:
             # Add button
             if st.button("Add to Quote", type="primary", key="add_material"):
-                material = materials_db.find_material(selected_material)
                 if material:
                     # Clean the material name for display
                     clean_name = materials_db._clean_material_name(material['name'])
@@ -1500,7 +1506,7 @@ def build_quote_tab(materials_db, labor_db):
                         'part_number': material['part_number'],
                         'quantity': quantity,
                         'unit': material['unit'],
-                        'unit_cost': material['unit_cost'],
+                        'unit_cost': material_cost,
                         'is_taxable': True
                     }
                     st.session_state.quote_items.append(item)
