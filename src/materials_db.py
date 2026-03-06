@@ -439,6 +439,279 @@ class MaterialsDatabase:
             {"name": "Geotextile Fabric 4x4 Pad Cut", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
             {"name": "Concrete Sealer Penetrating 1 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Concrete Pad"},
             {"name": "Expansion Joint Filler 1/2\" x 4\" Strip", "part_number": None, "unit_cost": 0.00, "unit": "FT", "category": "Concrete Pad"},
+            
+            # ================================================================
+            # ELECTRICAL - WIRE & CABLE
+            # ================================================================
+            {"name": "12/2 NM-B Romex Wire 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "14/2 NM-B Romex Wire 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "12/3 NM-B Romex Wire 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "10/2 NM-B Romex Wire 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "#6 THHN/THWN Wire 500ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "#4 THHN/THWN Wire 500ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "#2 THHN/THWN Wire 500ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "Cat6 Ethernet Cable 1000ft Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Electrical Wire"},
+            {"name": "Cat6A Ethernet Cable 1000ft Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Electrical Wire"},
+            {"name": "RG6 Coax Cable Quad Shield 1000ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "18/2 Thermostat Wire 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            {"name": "14/4 Security Alarm Wire 500ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Electrical Wire"},
+            
+            # ================================================================
+            # ELECTRICAL - BOXES & DEVICES
+            # ================================================================
+            {"name": "Single Gang New Work Box", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "Double Gang New Work Box", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "4\" Square Box 2-1/8\" Deep", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "4-11/16\" Square Box 2-1/8\" Deep", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "Ceiling Fan Rated Box", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "Outdoor Weatherproof Box 1-Gang", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Boxes"},
+            {"name": "15A Duplex Receptacle White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "20A Duplex Receptacle White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "15A GFCI Receptacle White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "20A GFCI Receptacle White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "15A AFCI Breaker Receptacle", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "Single Pole Switch 15A White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "3-Way Switch 15A White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "4-Way Switch 15A White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "Dimmer Switch 3-Way LED Compatible", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            {"name": "USB Charging Receptacle White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Devices"},
+            
+            # ================================================================
+            # ELECTRICAL - PANELS & BREAKERS
+            # ================================================================
+            {"name": "200A Main Breaker Panel 40-Space", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "100A Main Breaker Panel 20-Space", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "15A Single Pole Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "20A Single Pole Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "30A Double Pole Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "40A Double Pole Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "50A Double Pole Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "15A GFCI Circuit Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "20A GFCI Circuit Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "15A AFCI Circuit Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "20A AFCI Circuit Breaker", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            {"name": "Dual Function AFCI/GFCI Breaker 20A", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Electrical Panel"},
+            
+            # ================================================================
+            # PLUMBING - PIPE & FITTINGS (PEX)
+            # ================================================================
+            {"name": "1/2\" PEX Tubing Red 100ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX Tubing Blue 100ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Plumbing PEX"},
+            {"name": "3/4\" PEX Tubing Red 100ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Plumbing PEX"},
+            {"name": "3/4\" PEX Tubing Blue 100ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Plumbing PEX"},
+            {"name": "1\" PEX Tubing Red 100ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX Crimp Ring Pkg/25", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Plumbing PEX"},
+            {"name": "3/4\" PEX Crimp Ring Pkg/25", "part_number": None, "unit_cost": 0.00, "unit": "pkg", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX Elbow Brass", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            {"name": "3/4\" PEX Elbow Brass", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX Tee Brass", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            {"name": "3/4\" PEX Tee Brass", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX x 1/2\" MIP Adapter", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            {"name": "1/2\" PEX x 1/2\" FIP Adapter", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing PEX"},
+            
+            # ================================================================
+            # PLUMBING - COPPER PIPE & FITTINGS
+            # ================================================================
+            {"name": "1/2\" Type L Copper Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "3/4\" Type L Copper Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "1\" Type L Copper Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "1/2\" Copper 90-Degree Elbow", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "3/4\" Copper 90-Degree Elbow", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "1/2\" Copper Tee", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "3/4\" Copper Tee", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "1/2\" Copper Coupling", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "Lead-Free Solder 1lb Spool", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            {"name": "Flux Paste 8oz", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Copper"},
+            
+            # ================================================================
+            # PLUMBING - DRAIN WASTE VENT (DWV)
+            # ================================================================
+            {"name": "3\" PVC DWV Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "4\" PVC DWV Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "2\" PVC DWV Pipe 10ft Stick", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "3\" PVC DWV 90-Degree Elbow", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "4\" PVC DWV 90-Degree Elbow", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "3\" PVC DWV Tee Sanitary", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "4\" PVC DWV Tee Sanitary", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "3\" PVC DWV Wye Fitting", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "4\" PVC DWV Wye Fitting", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "3\" PVC DWV Coupling", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "3\" PVC Cleanout with Plug", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            {"name": "2\" PVC P-Trap", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing DWV"},
+            
+            # ================================================================
+            # PLUMBING - FIXTURES & VALVES
+            # ================================================================
+            {"name": "1/2\" Ball Valve Brass Full Port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "3/4\" Ball Valve Brass Full Port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "1\" Ball Valve Brass Full Port", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "1/2\" Stop Valve Quarter Turn", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "1/2\" x 3/8\" Angle Stop Valve", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "Water Heater Drain Valve", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Valves"},
+            {"name": "Toilet Fill Valve Universal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Fixtures"},
+            {"name": "Toilet Flapper Valve Universal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Fixtures"},
+            {"name": "Toilet Wax Ring with Flange", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Fixtures"},
+            {"name": "Faucet Supply Line 1/2\" x 12\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Fixtures"},
+            {"name": "Faucet Supply Line 1/2\" x 20\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Plumbing Fixtures"},
+            
+            # ================================================================
+            # HVAC - DUCTWORK
+            # ================================================================
+            {"name": "6\" Round Duct Pipe 5ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "8\" Round Duct Pipe 5ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "10\" Round Duct Pipe 5ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "6\" Round Duct Elbow 90-Degree", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "8\" Round Duct Elbow 90-Degree", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "6\" to 4\" Duct Reducer", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "8\" to 6\" Duct Reducer", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "6\" Round Boot Floor Register", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "6\" x 12\" Rectangular Duct 5ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "8\" x 12\" Rectangular Duct 5ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "Insulated Flex Duct 6\" x 25ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "Insulated Flex Duct 8\" x 25ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "Duct Damper 6\" Manual", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "Duct Damper 8\" Manual", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            {"name": "HVAC Foil Tape 2.5\" x 50yd", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "HVAC Duct"},
+            {"name": "Duct Mastic Sealant 1 Gallon", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Duct"},
+            
+            # ================================================================
+            # HVAC - REGISTERS & GRILLES
+            # ================================================================
+            {"name": "Floor Register 4\" x 10\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Floor Register 4\" x 12\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Wall Register 4\" x 10\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Wall Register 6\" x 10\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Ceiling Diffuser 6\" Round White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Ceiling Diffuser 8\" Round White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Return Air Grille 14\" x 14\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Return Air Grille 20\" x 20\" White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            {"name": "Filter Grille 16\" x 20\" with Filter", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Registers"},
+            
+            # ================================================================
+            # HVAC - REFRIGERANT LINES
+            # ================================================================
+            {"name": "1/4\" Refrigerant Line Set 25ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "3/8\" Refrigerant Line Set 25ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "1/2\" Refrigerant Line Set 25ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Line Set Insulation 1/4\" 6ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Condensate Drain Pan 18\" x 24\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Condensate Drain Line 3/4\" PVC 10ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Condensate Pump 230V", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Disconnect Box 60A Non-Fused", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Thermostat Programmable 7-Day", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            {"name": "Thermostat WiFi Smart", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "HVAC Refrigerant"},
+            
+            # ================================================================
+            # CARPENTRY - LUMBER
+            # ================================================================
+            {"name": "2x4 SPF Stud 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x4 SPF Stud 10ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x6 SPF Stud 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x6 SPF Board 12ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x8 SPF Board 12ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x10 SPF Board 12ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "2x12 SPF Board 12ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "4x4 PT Post 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "4x6 PT Post 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Framing"},
+            {"name": "1x4 Pine Board 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Trim"},
+            {"name": "1x6 Pine Board 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Trim"},
+            {"name": "1x8 Pine Board 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Lumber Trim"},
+            
+            # ================================================================
+            # CARPENTRY - SHEATHING & PANELS
+            # ================================================================
+            {"name": "OSB Sheathing 7/16\" 4x8 Sheet", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "OSB Sheathing 1/2\" 4x8 Sheet", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "OSB Sheathing 5/8\" 4x8 Sheet", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "OSB Sheathing 3/4\" 4x8 Sheet T&G", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "Plywood 1/2\" 4x8 Sheet BC Grade", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "Plywood 3/4\" 4x8 Sheet BC Grade", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "Plywood 1/2\" 4x8 ACX Exterior", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "Zip Sheathing 7/16\" 4x8 Sheet", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Sheathing"},
+            {"name": "Zip Tape 3-3/4\" x 90ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Sheathing"},
+            
+            # ================================================================
+            # CARPENTRY - FASTENERS
+            # ================================================================
+            {"name": "16d Common Nail 5lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "8d Common Nail 5lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "Framing Nail 3\" x .131 2000ct", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "Framing Nail 3-1/4\" x .131 2000ct", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "Deck Screw #10 x 3\" 1lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "Wood Screw #8 x 2-1/2\" 1lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Fasteners"},
+            {"name": "Joist Hanger 2x6 Galvanized", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            {"name": "Joist Hanger 2x8 Galvanized", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            {"name": "Joist Hanger 2x10 Galvanized", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            {"name": "Hurricane Tie Simpson H2.5A", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            {"name": "Simpson Strong-Tie Anchor Bolt", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            {"name": "Construction Adhesive 28oz Tube", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Fasteners"},
+            
+            # ================================================================
+            # DRYWALL - PANELS & MUD
+            # ================================================================
+            {"name": "Drywall 1/2\" 4x8 Lightweight", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Drywall"},
+            {"name": "Drywall 1/2\" 4x12 Lightweight", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Drywall"},
+            {"name": "Drywall 5/8\" 4x8 Type X Fire", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Drywall"},
+            {"name": "Drywall 1/2\" 4x8 Moisture Resist", "part_number": None, "unit_cost": 0.00, "unit": "sheet", "category": "Drywall"},
+            {"name": "Joint Compound All-Purpose 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Drywall Compound"},
+            {"name": "Joint Compound Lightweight 4.5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Drywall Compound"},
+            {"name": "Joint Tape Paper 2\" x 250ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Drywall Compound"},
+            {"name": "Joint Tape Mesh 2\" x 300ft", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Drywall Compound"},
+            {"name": "Corner Bead Metal 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drywall Compound"},
+            {"name": "Corner Bead Vinyl 8ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Drywall Compound"},
+            {"name": "Drywall Screw 1-1/4\" 1lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Drywall"},
+            {"name": "Drywall Screw 1-5/8\" 1lb Box", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Drywall"},
+            
+            # ================================================================
+            # PAINTING - PAINT & PRIMER
+            # ================================================================
+            {"name": "Interior Paint Flat White 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Paint"},
+            {"name": "Interior Paint Eggshell White 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Paint"},
+            {"name": "Interior Paint Semi-Gloss White 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Paint"},
+            {"name": "Exterior Paint Satin White 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Paint"},
+            {"name": "Primer Drywall PVA White 5gal", "part_number": None, "unit_cost": 0.00, "unit": "pail", "category": "Paint"},
+            {"name": "Primer Bonding Multi-Surface 1gal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint"},
+            {"name": "Stain Blocking Primer 1gal", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint"},
+            {"name": "Paint Roller Cover 9\" 3/8\" Nap", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint Supplies"},
+            {"name": "Paint Roller Frame 9\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint Supplies"},
+            {"name": "Paint Brush 2.5\" Angled", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint Supplies"},
+            {"name": "Painter's Tape 1.5\" x 60yd Blue", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Paint Supplies"},
+            {"name": "Plastic Drop Cloth 9x12", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Paint Supplies"},
+            
+            # ================================================================
+            # ROOFING - SHINGLES & UNDERLAYMENT
+            # ================================================================
+            {"name": "3-Tab Asphalt Shingle Bundle Black", "part_number": None, "unit_cost": 0.00, "unit": "bundle", "category": "Roofing Shingles"},
+            {"name": "Architectural Shingle Bundle Black", "part_number": None, "unit_cost": 0.00, "unit": "bundle", "category": "Roofing Shingles"},
+            {"name": "Architectural Shingle Bundle Brown", "part_number": None, "unit_cost": 0.00, "unit": "bundle", "category": "Roofing Shingles"},
+            {"name": "Ridge Cap Shingle Bundle", "part_number": None, "unit_cost": 0.00, "unit": "bundle", "category": "Roofing Shingles"},
+            {"name": "Starter Strip Shingles 100ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Roofing Shingles"},
+            {"name": "Roofing Felt #15 432 SF Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Roofing Underlayment"},
+            {"name": "Roofing Felt #30 216 SF Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Roofing Underlayment"},
+            {"name": "Synthetic Underlayment 10sq Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Roofing Underlayment"},
+            {"name": "Ice & Water Shield 225 SF Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Roofing Underlayment"},
+            {"name": "Drip Edge Aluminum 10ft White", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Roofing Flashing"},
+            {"name": "Step Flashing Aluminum 8\" x 8\"", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Roofing Flashing"},
+            {"name": "Valley Flashing Aluminum 10ft", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Roofing Flashing"},
+            {"name": "Roof Vent Plastic Static 12\" Base", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Roofing Vents"},
+            {"name": "Ridge Vent Aluminum 4ft Section", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Roofing Vents"},
+            {"name": "Roofing Nail 1-1/4\" Coil 7200ct", "part_number": None, "unit_cost": 0.00, "unit": "box", "category": "Roofing Fasteners"},
+            
+            # ================================================================
+            # SITE WORK - LANDSCAPING
+            # ================================================================
+            {"name": "Topsoil Screened Cubic Yard", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Landscaping"},
+            {"name": "Mulch Hardwood Dyed Brown CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Landscaping"},
+            {"name": "River Rock 1-3\" CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Landscaping"},
+            {"name": "Gravel 3/4\" Clean CY", "part_number": None, "unit_cost": 0.00, "unit": "CY", "category": "Landscaping"},
+            {"name": "Sod Fescue Pallet 500 SF", "part_number": None, "unit_cost": 0.00, "unit": "pallet", "category": "Landscaping"},
+            {"name": "Grass Seed Tall Fescue 50lb Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Landscaping"},
+            {"name": "Landscape Fabric 3x300ft Roll", "part_number": None, "unit_cost": 0.00, "unit": "roll", "category": "Landscaping"},
+            {"name": "Edging Plastic 20ft Coil", "part_number": None, "unit_cost": 0.00, "unit": "coil", "category": "Landscaping"},
+            {"name": "Landscape Timber 4x6x8 PT", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Landscaping"},
+            {"name": "Retaining Wall Block Standard", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Landscaping"},
+            {"name": "Paver Brick 4x8 Red", "part_number": None, "unit_cost": 0.00, "unit": "ea", "category": "Landscaping"},
+            {"name": "Paver Base Sand 50lb Bag", "part_number": None, "unit_cost": 0.00, "unit": "bag", "category": "Landscaping"},
         ]
         
         return materials
