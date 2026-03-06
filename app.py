@@ -30,6 +30,23 @@ from src.labor_db import LaborDatabase
 from src.pdf_parser import PDFParser
 from src.vendor_detector import VendorDetector
 
+# GIS modules (optional - only load if available)
+try:
+    from src.gis_parser import GISParser
+    from src.schema_mapper import SchemaMapper
+    from src.quote_rules import QuoteRules
+    import geopandas as gpd
+    try:
+        import streamlit_folium as st_folium
+        import folium
+        MAP_AVAILABLE = True
+    except ImportError:
+        MAP_AVAILABLE = False
+    GIS_AVAILABLE = True
+except ImportError:
+    GIS_AVAILABLE = False
+    MAP_AVAILABLE = False
+
 
 def _detect_columns(df: pd.DataFrame) -> dict:
     """
@@ -278,7 +295,7 @@ def main():
     labor_db = LaborDatabase(labor_file_path)
     
     # Main navigation
-    tab1, tab2, tab3 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List", "📍 GIS Quote Builder"])
     
     with tab1:
         process_quote_tab(materials_db, labor_db)
@@ -288,6 +305,9 @@ def main():
     
     with tab3:
         materials_list_tab(materials_db)
+    
+    with tab4:
+        gis_quote_tab(materials_db, labor_db)
     
     # Footer
     st.markdown("---")
@@ -1950,6 +1970,243 @@ def materials_list_tab(materials_db):
         Uses the built-in materials database with standard OSP items.
         You can add custom materials in the Materials List tab.
         """)
+
+
+def gis_quote_tab(materials_db, labor_db):
+    """GIS-based quote generation from design files."""
+    
+    if not GIS_AVAILABLE:
+        st.warning("⚠️ GIS features not available")
+        st.info(
+            "To enable GIS quote generation, install required packages:\n\n"
+            "```\npip install geopandas shapely fiona pyproj ezdxf simplekml rtree streamlit-folium folium\n```"
+        )
+        return
+    
+    st.markdown('<h2>📍 GIS Quote Builder</h2>', unsafe_allow_html=True)
+    st.markdown(
+        "Upload GIS design files (Shapefile, GeoJSON, KML, etc.) to automatically "
+        "generate quotes based on measured cable runs, splice points, and equipment locations."
+    )
+    
+    # File upload
+    st.markdown("### 1. Upload Design File")
+    
+    uploaded_file = st.file_uploader(
+        "Select GIS File",
+        type=['shp', 'geojson', 'json', 'kml', 'kmz', 'gpkg', 'dxf'],
+        help="Supported formats: Shapefile, GeoJSON, KML/KMZ, GeoPackage, DXF"
+    )
+    
+    if uploaded_file is None:
+        st.info("👆 Upload a GIS file to get started")
+        
+        with st.expander("📖 Supported File Formats"):
+            st.markdown("""
+            **Shapefile (.shp)** - Most common format, exports from Vetro, ArcGIS, QGIS
+            
+            **GeoJSON (.geojson, .json)** - Modern web-friendly format
+            
+            **KML/KMZ (.kml, .kmz)** - Google Earth format
+            
+            **GeoPackage (.gpkg)** - Modern SQLite-based format
+            
+            **DXF (.dxf)** - AutoCAD design files
+            
+            **Note:** For Shapefile uploads, you may need to upload the .shp, .dbf, .shx, and .prj files together.
+            """)
+        
+        with st.expander("🎯 How It Works"):
+            st.markdown("""
+            1. **Upload** your GIS design file
+            2. **Review** detected features and attributes
+            3. **Map** attributes to materials (auto-detected when possible)
+            4. **Generate** quote with materials and labor automatically calculated
+            5. **Download** complete quote ready for client
+            
+            The system automatically:
+            - Calculates cable lengths from line features
+            - Counts splice points based on distance
+            - Selects appropriate conduit sizes
+            - Estimates labor hours by install method
+            - Applies your margin and tax rates
+            """)
+        return
+    
+    # Save uploaded file temporarily
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        temp_path = tmp_file.name
+    
+    try:
+        # Parse GIS file
+        parser = GISParser()
+        
+        with st.spinner("Parsing GIS file..."):
+            gdf = parser.parse_file(temp_path)
+        
+        st.success(f"✅ Loaded {len(gdf)} features from {uploaded_file.name}")
+        
+        # Display summary
+        st.markdown("### 2. Design Summary")
+        summary = parser.get_layer_summary(gdf)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Features", summary['total_features'])
+        with col2:
+            geom_types = ", ".join([f"{k}: {v}" for k, v in summary['geometry_types'].items()])
+            st.metric("Geometry Types", len(summary['geometry_types']))
+            st.caption(geom_types)
+        with col3:
+            st.metric("Attributes", len(summary['columns']) - 1)
+        
+        # Attribute mapping
+        st.markdown("### 3. Attribute Mapping")
+        
+        mapper = SchemaMapper()
+        auto_detected = mapper.auto_detect_fields(gdf)
+        
+        if auto_detected:
+            st.success(f"Auto-detected {len(auto_detected)} field mappings")
+            st.json(auto_detected)
+        else:
+            st.info("No fields auto-detected. Please map manually below.")
+        
+        # Manual mapping interface
+        with st.expander("🔧 Configure Field Mapping", expanded=not auto_detected):
+            available_cols = [col for col in gdf.columns if col not in ['geometry', 'geom_type']]
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                length_col = st.selectbox(
+                    "Length/Distance Field",
+                    [''] + available_cols,
+                    index=available_cols.index(auto_detected.get('length', '')) + 1 if auto_detected.get('length') in available_cols else 0
+                )
+                
+                fiber_count_col = st.selectbox(
+                    "Fiber Count Field (optional)",
+                    [''] + available_cols,
+                    index=available_cols.index(auto_detected.get('fiber_count', '')) + 1 if auto_detected.get('fiber_count') in available_cols else 0
+                )
+            
+            with col2:
+                install_method_col = st.selectbox(
+                    "Install Method Field (optional)",
+                    [''] + available_cols,
+                    index=available_cols.index(auto_detected.get('install_method', '')) + 1 if auto_detected.get('install_method') in available_cols else 0
+                )
+                
+                description_col = st.selectbox(
+                    "Description Field (optional)",
+                    [''] + available_cols,
+                    index=available_cols.index(auto_detected.get('description', '')) + 1 if auto_detected.get('description') in available_cols else 0
+                )
+        
+        # Build mapping dictionary
+        mapping = {}
+        if length_col:
+            mapping['length'] = length_col
+        if fiber_count_col:
+            mapping['fiber_count'] = fiber_count_col
+        if install_method_col:
+            mapping['install_method'] = install_method_col
+        if description_col:
+            mapping['description'] = description_col
+        
+        # Extract measurements
+        st.markdown("### 4. Extracted Measurements")
+        
+        measurements_df = mapper.extract_measurements(gdf)
+        
+        # Display preview
+        st.dataframe(
+            measurements_df.head(10),
+            use_container_width=True,
+            height=300
+        )
+        
+        if len(measurements_df) > 10:
+            st.caption(f"Showing 10 of {len(measurements_df)} features")
+        
+        # Generate quote button
+        st.markdown("### 5. Generate Quote")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            if st.button("🚀 Generate Quote from GIS", type="primary", use_container_width=True):
+                with st.spinner("Generating quote from measurements..."):
+                    # Generate BOM using rules engine
+                    bom_df = QuoteRules.generate_bom_from_measurements(measurements_df, mapping)
+                    
+                    if len(bom_df) == 0:
+                        st.warning("No materials generated. Check your field mappings.")
+                    else:
+                        st.success(f"✅ Generated {len(bom_df)} line items")
+                        
+                        # Separate materials and labor
+                        materials_items = bom_df[bom_df['type'] == 'material'].to_dict('records')
+                        labor_items = bom_df[bom_df['type'] == 'labor'].to_dict('records')
+                        
+                        # Add to session state
+                        if 'quote_items' not in st.session_state:
+                            st.session_state.quote_items = []
+                        if 'labor_items' not in st.session_state:
+                            st.session_state.labor_items = []
+                        
+                        for item in materials_items:
+                            st.session_state.quote_items.append({
+                                'type': 'material',
+                                'name': item['name'],
+                                'part_number': None,
+                                'quantity': item['quantity'],
+                                'unit': item['unit'],
+                                'unit_cost': 0.0,
+                                'is_taxable': True
+                            })
+                        
+                        for item in labor_items:
+                            st.session_state.labor_items.append({
+                                'type': 'labor',
+                                'task': item['name'],
+                                'quantity': item['quantity'],
+                                'unit': item['unit'],
+                                'rate': 0.0,
+                                'is_taxable': False
+                            })
+                        
+                        st.info(
+                            f"📦 Added {len(materials_items)} materials and 👷 {len(labor_items)} labor items to Build Quote tab. "
+                            "Go to Build Quote to review and add pricing."
+                        )
+                        
+                        # Display preview
+                        st.markdown("**Generated Bill of Materials:**")
+                        st.dataframe(
+                            bom_df[['type', 'name', 'quantity', 'unit', 'category']],
+                            use_container_width=True
+                        )
+        
+        with col2:
+            st.metric("Total Features", len(measurements_df))
+            if 'length_ft' in measurements_df.columns:
+                total_length = measurements_df['length_ft'].sum()
+                st.metric("Total Length", f"{total_length:,.0f} FT")
+    
+    except Exception as e:
+        st.error(f"Error processing GIS file: {str(e)}")
+        st.exception(e)
+    
+    finally:
+        # Cleanup temp file
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
 
 
 if __name__ == "__main__":
