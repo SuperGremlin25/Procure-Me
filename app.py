@@ -1667,6 +1667,7 @@ def build_quote_tab(materials_db, labor_db):
             with pd.ExcelWriter(combined_buffer, engine='xlsxwriter') as writer:
                 audit_df.to_excel(writer, sheet_name='Internal_Audit', index=False)
                 client_df_manual.to_excel(writer, sheet_name='Client_Quote', index=False)
+            combined_buffer.seek(0)  # Reset buffer position for reading
             
             st.download_button(
                 label="📥 Download Both",
