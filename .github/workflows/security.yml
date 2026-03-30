@@ -48,7 +48,7 @@ jobs:
           p/streamlit
           
     - name: Upload security scan results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-reports
