@@ -39,7 +39,7 @@ class MaterialsDatabase:
             try:
                 with open(self.data_file, 'r') as f:
                     return json.load(f)
-            except:
+            except (OSError, json.JSONDecodeError):
                 pass
         
         # Use default materials if file doesn't exist or is invalid
@@ -49,7 +49,7 @@ class MaterialsDatabase:
         # Save defaults for next time
         try:
             self.save()
-        except:
+        except OSError:
             # In read-only environments, just use defaults without saving
             pass
         
