@@ -1,0 +1,21 @@
+name = "remedy-processor"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# R2 bucket binding
+[[r2_buckets]]
+binding = "REMEDY_BUCKET"
+bucket_name = "remedy-bucket"
+
+# KV namespace for job status
+[[kv_namespaces]]
+binding = "JOB_STATUS"
+id = "your-kv-namespace-id"
+
+# Environment variables (secrets set via wrangler secret)
+[vars]
+PYTHON_BACKEND_URL = "https://your-app.railway.app"
+
+# Secrets to set:
+# wrangler secret put MISTRAL_API_KEY
+# wrangler secret put BACKEND_API_KEY
