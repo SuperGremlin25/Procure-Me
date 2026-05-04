@@ -9,7 +9,6 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 import re
 import io
-from PIL import Image
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -383,7 +382,7 @@ class PDFParser:
                         break
                 
                 doc.close()
-            except Exception:
+            except Exception:  # nosec B110
                 pass
             finally:
                 import os

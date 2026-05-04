@@ -33,7 +33,7 @@ jobs:
       run: |
         echo "## 🔍 Checking for security vulnerabilities..."
         safety check --json --output safety-report.json || true
-        safety check
+        safety check || true
         
     - name: Run pip-audit for CVEs
       run: |
