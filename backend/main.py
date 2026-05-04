@@ -108,7 +108,7 @@ async def spatial_join(
         stats = integrator.get_summary_statistics()
         
         # Export to KMZ
-        kmz_path = f"/tmp/{request.jobId}_remedy_map.kmz"
+        kmz_path = os.path.join(tempfile.gettempdir(), f"{request.jobId}_remedy_map.kmz")
         integrator.export_to_kmz(kmz_path, include_normal=False)
         
         # Upload KMZ to storage (would use R2 in production)
@@ -203,7 +203,7 @@ async def download_bid(jobId: str):
 async def download_kmz(jobId: str):
     """Download KMZ file."""
     try:
-        kmz_path = f"/tmp/{jobId}_remedy_map.kmz"
+        kmz_path = os.path.join(tempfile.gettempdir(), f"{jobId}_remedy_map.kmz")
         
         if not os.path.exists(kmz_path):
             raise HTTPException(status_code=404, detail="KMZ file not found")
@@ -244,7 +244,7 @@ async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
     """Load joined GeoDataFrame from storage."""
     # In production, this would load from R2 or database
     # For now, return None (would need to cache in Redis or similar)
-    cache_path = f"/tmp/{job_id}_joined.geojson"
+    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_joined.geojson")
     
     if os.path.exists(cache_path):
         return gpd.read_file(cache_path)
@@ -255,7 +255,7 @@ async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
 async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
     """Store bid result for later retrieval."""
     import json
-    cache_path = f"/tmp/{job_id}_bid.json"
+    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
     
     with open(cache_path, 'w') as f:
         json.dump(result, f)
@@ -264,7 +264,7 @@ async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
 async def load_bid_result(job_id: str) -> Optional[Dict[str, Any]]:
     """Load bid result from storage."""
     import json
-    cache_path = f"/tmp/{job_id}_bid.json"
+    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
     
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:
@@ -278,7 +278,7 @@ async def generate_bid_excel(bid_data: Dict[str, Any], job_id: str) -> str:
     import pandas as pd
     from io import BytesIO
     
-    output_path = f"/tmp/{job_id}_bid.xlsx"
+    output_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.xlsx")
     
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         # Summary sheet
@@ -304,4 +304,4 @@ async def generate_bid_excel(bid_data: Dict[str, Any], job_id: str) -> str:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

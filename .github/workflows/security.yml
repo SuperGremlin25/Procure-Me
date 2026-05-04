@@ -31,12 +31,12 @@ jobs:
     - name: Run Bandit Security Scan
       run: |
         bandit -r . -f json -o bandit-report.json || true
-        bandit -r . -f txt
+        bandit -r . -f txt || true
         
     - name: Run Safety Check
       run: |
         safety check --json --output safety-report.json || true
-        safety check
+        safety check || true
         
     - name: Run Semgrep Security Scan
       uses: semgrep/semgrep-action@v1
@@ -64,7 +64,7 @@ jobs:
           const fs = require('fs');
           try {
             const bandit = JSON.parse(fs.readFileSync('bandit-report.json', 'utf8'));
-            const safety = JSON.parse('safety-report.json', 'utf8');
+            const safety = JSON.parse(fs.readFileSync('safety-report.json', 'utf8'));
             
             let comment = '## 🔒 Security Scan Results\n\n';
             

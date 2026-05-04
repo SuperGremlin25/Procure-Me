@@ -10,6 +10,7 @@ import numpy as np
 from io import BytesIO
 import sys
 import os
+import tempfile
 
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -179,11 +180,8 @@ def main():
                 unsafe_allow_html=True)
     
     # Initialize materials database with persistent storage
-    # Use /tmp on Streamlit Cloud (read-only filesystem), local path otherwise
-    if os.path.exists("/tmp"):
-        data_file_path = "/tmp/materials_data.json"
-    else:
-        data_file_path = os.path.join(os.path.dirname(__file__), "materials_data.json")
+    # Use the system temp directory for Streamlit Cloud compatibility
+    data_file_path = os.path.join(tempfile.gettempdir(), "materials_data.json")
     materials_db = MaterialsDatabase(data_file_path)
     
     # Main navigation
@@ -579,7 +577,7 @@ def process_quote_tab(materials_db):
             try:
                 if 'temp_path' in locals() and os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except:
+            except OSError:
                 pass
 
 

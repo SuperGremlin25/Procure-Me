@@ -24,17 +24,16 @@ jobs:
     - name: Update pip and tools
       run: |
         python -m pip install --upgrade pip
-        pip install pip-review
         
     - name: Check for outdated dependencies
       run: |
-        pip-review --local --interactive --mode=auto > dependency-updates.txt 2>&1 || true
-        pip-review --local --mode=json > dependency-updates.json 2>&1 || true
+        pip list --outdated --format=columns > dependency-updates.txt 2>&1 || true
+        pip list --outdated --format=json > dependency-updates.json 2>&1 || true
         
     - name: Update requirements.txt
       run: |
         # Create updated requirements file
-        pip-review --local --mode=auto | grep -E "^\w+" | awk '{print $1}' > temp-requirements.txt
+        pip list --outdated --format=json > temp-outdated.json 2>&1 || true
         pip freeze > requirements-new.txt
         
         # Update only the packages we're tracking
