@@ -179,7 +179,11 @@ def main():
                 unsafe_allow_html=True)
     
     # Initialize materials database with persistent storage
-    data_file_path = os.path.join(os.path.dirname(__file__), "materials_data.json")
+    # Use /tmp on Streamlit Cloud (read-only filesystem), local path otherwise
+    if os.path.exists("/tmp"):
+        data_file_path = "/tmp/materials_data.json"
+    else:
+        data_file_path = os.path.join(os.path.dirname(__file__), "materials_data.json")
     materials_db = MaterialsDatabase(data_file_path)
     
     # Main navigation
