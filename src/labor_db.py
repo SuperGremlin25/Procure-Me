@@ -38,7 +38,7 @@ class LaborDatabase:
             try:
                 with open(self.data_file, 'r') as f:
                     return json.load(f)
-            except:
+            except Exception:
                 pass
         
         return self._load_default_tasks()
@@ -295,7 +295,7 @@ class LaborDatabase:
         try:
             with open(self.data_file, 'w') as f:
                 json.dump(self.labor_tasks, f, indent=2)
-        except:
+        except Exception:
             pass
     
     def to_dataframe(self, columns: Optional[List[str]] = None) -> pd.DataFrame:

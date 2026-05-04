@@ -624,7 +624,7 @@ def process_quote_tab(materials_db, labor_db):
                 # Clean up temp file
                 try:
                     os.unlink(preview_path)
-                except:
+                except Exception:
                     pass
         except Exception as e:
             content_result = {"vendor_name": "Unknown", "confidence": 0.0}
@@ -1443,7 +1443,7 @@ def process_quote_tab(materials_db, labor_db):
             try:
                 if 'temp_path' in locals() and os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except:
+            except Exception:
                 pass
 
 
