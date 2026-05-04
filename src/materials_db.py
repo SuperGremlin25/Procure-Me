@@ -46,10 +46,12 @@ class MaterialsDatabase:
         # This will happen on first run in Streamlit Cloud
         default_materials = self._load_default_materials()
         
-        # Save defaults for next time
+        # Save defaults for next time (only if we can write)
+        # Set self.materials temporarily so save() can access it
         try:
+            self.materials = default_materials
             self.save()
-        except OSError:
+        except (OSError, IOError, PermissionError):
             # In read-only environments, just use defaults without saving
             pass
         
