@@ -20,7 +20,6 @@ from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
 from src.pdf_parser import PDFParser
 
-
 def _detect_columns(df: pd.DataFrame) -> dict:
     """
     Detect which DataFrame columns contain description, quantity, and unit cost
