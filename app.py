@@ -14,38 +14,10 @@ import os
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.pricing_calculator import (
-    PricingProcessor,
-    CalculationMethod,
-    InvoiceFormat,
-    TradeType,
-    ComplianceMode,
-    TRADE_PRESETS,
-    margin_to_markup,
-    markup_to_margin
-)
+from src.pricing_calculator import PricingProcessor
 from src.excel_parser import ExcelParser
 from src.materials_db import MaterialsDatabase
-from src.labor_db import LaborDatabase
 from src.pdf_parser import PDFParser
-from src.vendor_detector import VendorDetector
-
-# GIS modules (optional - only load if available)
-try:
-    from src.gis_parser import GISParser
-    from src.schema_mapper import SchemaMapper
-    from src.quote_rules import QuoteRules
-    import geopandas as gpd
-    try:
-        import streamlit_folium as st_folium
-        import folium
-        MAP_AVAILABLE = True
-    except ImportError:
-        MAP_AVAILABLE = False
-    GIS_AVAILABLE = True
-except ImportError:
-    GIS_AVAILABLE = False
-    MAP_AVAILABLE = False
 
 
 def _detect_columns(df: pd.DataFrame) -> dict:
@@ -65,32 +37,19 @@ def _detect_columns(df: pd.DataFrame) -> dict:
     
     desc_keywords = ['desc', 'material', 'item', 'product', 'name']
     qty_keywords = ['qty', 'quantity', 'count']
-    # Prioritize Quote Qty over BOM Qty
-    quote_qty_keywords = ['quote qty', 'quote quantity', 'quotequantity', 'quoteqty']
-    bom_qty_keywords = ['bom qty', 'bom quantity', 'bomqty']
     cost_keywords = ['cost', 'price', 'rate', 'amount', 'unit cost', 'unit price']
     
     for col in df.columns:
-        col_lower = str(col).lower().replace(' ', '')
-        col_lower_with_space = str(col).lower()
+        col_lower = str(col).lower()
         vals = df[col].dropna().astype(str)
         sample = vals.head(20)
         
         # ── 1. Column-name hints ──
-        if any(k in col_lower_with_space for k in desc_keywords):
+        if any(k in col_lower for k in desc_keywords):
             scores[col]['desc'] += 3
-        
-        # PRIORITY: Quote Qty gets highest score
-        if any(k.replace(' ', '') in col_lower for k in quote_qty_keywords):
-            scores[col]['qty'] += 10  # High priority for Quote Qty
-        # BOM Qty gets lower score
-        elif any(k.replace(' ', '') in col_lower for k in bom_qty_keywords):
-            scores[col]['qty'] += 2   # Lower priority for BOM Qty
-        # Generic qty/quantity
-        elif any(k in col_lower_with_space for k in qty_keywords):
+        if any(k in col_lower for k in qty_keywords):
             scores[col]['qty'] += 3
-        
-        if any(k in col_lower_with_space for k in cost_keywords):
+        if any(k in col_lower for k in cost_keywords):
             scores[col]['cost'] += 3
         
         # ── 2. First few values may be in-data headers ──
@@ -99,12 +58,7 @@ def _detect_columns(df: pd.DataFrame) -> dict:
             vl = v.strip().lower()
             if vl in ('description', 'item', 'material', 'product', 'item description'):
                 scores[col]['desc'] += 6
-            # Prioritize Quote Qty in header values too
-            if vl in ('quote qty', 'quote quantity', 'quotequantity', 'quoteqty'):
-                scores[col]['qty'] += 10
-            elif vl in ('bom qty', 'bom quantity', 'bomqty'):
-                scores[col]['qty'] += 3
-            elif vl in ('qty', 'quantity'):
+            if vl in ('qty', 'quantity'):
                 scores[col]['qty'] += 6
             if vl in ('rate', 'unit cost', 'cost', 'price', 'unit price'):
                 scores[col]['cost'] += 6
@@ -221,377 +175,54 @@ st.markdown("""
 
 def main():
     """Main application function."""
-    # Hero Section
-    st.markdown("""
-    <div style="text-align: center; padding: 2rem 0 1rem 0;">
-        <h1 style="font-size: 3rem; margin-bottom: 0.5rem;">🔧 Procure-Me</h1>
-        <p style="font-size: 1.5rem; color: #666; margin-bottom: 2rem;">
-            Turn vendor quotes into client-ready estimates in seconds
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Metrics Row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("⚡ Processing Time", "< 30 sec")
-    with col2:
-        st.metric("📊 Output Formats", "7 types")
-    with col3:
-        st.metric("🔒 Your Data", "Never stored")
-    with col4:
-        st.metric("💰 Cost", "FREE")
-    
-    # Value Props
-    st.markdown("""
-    ### Why Procure-Me?
-    
-    ✅ **Stop manual spreadsheet work** — Upload vendor quote, get client estimate instantly  
-    ✅ **Formula transparency** — See exactly how every price is calculated  
-    ✅ **Multiple output formats** — Excel, CSV, Word, Markdown — choose what works for you  
-    ✅ **Configurable rates** — Adjust margin (0-50%) and tax (0-20%) with simple sliders  
-    ✅ **No signup required** — Start processing quotes immediately, no account needed  
-    """)
-    
-    # Quick Start Guide
-    with st.expander("� Quick Start Guide - First time here?"):
-        st.markdown("""
-        ### How to Use Procure-Me
-        
-        **Step 1: Upload Your Vendor Quote**
-        - Click the "📊 Process Quote" tab below
-        - Upload your Excel (.xlsx) or PDF file
-        - Supported formats: vendor quotes, BOMs, material lists
-        
-        **Step 2: Configure Your Rates**
-        - Use the sidebar sliders to set your margin (default 10%)
-        - Set your tax rate (default 8.25%)
-        - Adjust shipping costs if applicable
-        
-        **Step 3: Map Your Columns**
-        - Procure-Me auto-detects columns (Description, Qty, Cost)
-        - Verify the mapping is correct
-        - Adjust if needed
-        
-        **Step 4: Download Your Results**
-        - Get 7 different output formats:
-          - **Client Quote** (clean 6-column format)
-          - **Internal Audit** (full cost breakdown with formulas)
-          - **Combined Workbook** (both sheets in one file)
-          - **CSV exports** (for data portability)
-          - **Summary reports** (Markdown or Word)
-        
-        **All processing happens locally in your browser. No data is uploaded or stored.**
-        """)
-    
-    st.markdown("---")
+    st.markdown('<h1 class="main-header">💰 Procure-Me Pricing Calculator</h1>', 
+                unsafe_allow_html=True)
     
     # Initialize materials database with persistent storage
     data_file_path = os.path.join(os.path.dirname(__file__), "materials_data.json")
     materials_db = MaterialsDatabase(data_file_path)
     
-    # Initialize labor database with persistent storage
-    labor_file_path = os.path.join(os.path.dirname(__file__), "labor_data.json")
-    labor_db = LaborDatabase(labor_file_path)
-    
     # Main navigation
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List", "📍 GIS Quote Builder"])
+    tab1, tab2, tab3 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List"])
     
     with tab1:
-        process_quote_tab(materials_db, labor_db)
+        process_quote_tab(materials_db)
     
     with tab2:
-        build_quote_tab(materials_db, labor_db)
+        build_quote_tab(materials_db)
     
     with tab3:
         materials_list_tab(materials_db)
-    
-    with tab4:
-        gis_quote_tab(materials_db, labor_db)
-    
-    # Footer
-    st.markdown("---")
-    footer_col1, footer_col2, footer_col3 = st.columns(3)
-    
-    with footer_col1:
-        st.markdown("**About**")
-        st.markdown(
-            "Built for contractors, estimators, and procurement professionals who are tired of manual spreadsheet work."
-        )
-    
-    with footer_col2:
-        st.markdown("**Resources**")
-        st.markdown("📖 [Documentation](https://github.com/SuperGremlin25/Procure-Me#readme)")
-        st.markdown("🐛 [Report Bug](https://github.com/SuperGremlin25/Procure-Me/issues)")
-        st.markdown("💡 [Request Feature](https://github.com/SuperGremlin25/Procure-Me/issues)")
-    
-    with footer_col3:
-        st.markdown("**Connect**")
-        st.markdown("⭐ [Star on GitHub](https://github.com/SuperGremlin25/Procure-Me)")
-        st.markdown("Made with ❤️ by Digital Insurgent Media")
-    
-    st.caption("v1.0.0 | MIT License | No data is stored or transmitted")
 
 
-def process_quote_tab(materials_db, labor_db):
+def process_quote_tab(materials_db):
     """Process uploaded quote files."""
     # Sidebar for settings
-    st.sidebar.markdown('<h2 class="section-header">Pricing Configuration</h2>', 
+    st.sidebar.markdown('<h2 class="section-header">Settings</h2>', 
                         unsafe_allow_html=True)
     
-    # Quick Start Mode Selector
-    st.sidebar.markdown("### Quick Start")
-    compliance_mode = st.sidebar.selectbox(
-        "What are you pricing?",
-        options=[
-            ComplianceMode.COMMERCIAL.value,
-            ComplianceMode.GOVERNMENT_GRANT.value,
-            ComplianceMode.GOVERNMENT_CONTRACT.value,
-            ComplianceMode.CUSTOM.value
-        ],
-        format_func=lambda x: {
-            "commercial": "Commercial Job (standard pricing)",
-            "grant": "Government Grant (ARPA/BEAD compliance)",
-            "contract": "Direct Government Contract (FAR compliance)",
-            "custom": "Custom (advanced settings)"
-        }[x],
-        help="Loads preset configuration for common scenarios"
-    )
-    
-    # Trade Type Selector
-    trade_type = st.sidebar.selectbox(
-        "Type of work",
-        options=[t.value for t in TradeType],
-        format_func=lambda x: TRADE_PRESETS[TradeType(x)]['description'],
-        index=0,  # Default to Telecom
-        help="Loads suggested margin ranges for this trade"
-    )
-    trade_type_enum = TradeType(trade_type)
-    trade_preset = TRADE_PRESETS[trade_type_enum]
-    
-    # Determine default margin based on mode
-    if compliance_mode in [ComplianceMode.GOVERNMENT_GRANT.value, ComplianceMode.GOVERNMENT_CONTRACT.value]:
-        default_margin = trade_preset['government_margin']
-    else:
-        default_margin = trade_preset['default_margin']
-    
-    # Margin Configuration
-    st.sidebar.markdown("### Contractor Margin")
-    
-    # Gross Margin toggle
-    is_gross_margin = st.sidebar.checkbox(
-        "Enter as Gross Margin %",
-        value=True,
-        help="If checked, enter your target gross margin (profit/revenue). Tool will calculate required markup automatically."
-    )
-    
-    margin_label = "Target Gross Margin (%)" if is_gross_margin else "Markup (%)"
-    margin_help = (
-        f"Your target gross margin. Suggested range: {trade_preset['suggested_margin_min']*100:.0f}%-{trade_preset['suggested_margin_max']*100:.0f}%"
-        if is_gross_margin else
-        "Markup percentage to add to costs"
-    )
-    
-    margin_value = st.sidebar.slider(
-        margin_label,
-        min_value=5.0,
-        max_value=50.0,
-        value=default_margin * 100,
-        step=1.0,
-        help=margin_help
-    )
-    
-    margin_rate = margin_value / 100
-    
-    # Show conversion if in gross margin mode
-    if is_gross_margin:
-        required_markup = margin_to_markup(margin_rate) * 100
-        st.sidebar.caption(f"✓ Required markup: {required_markup:.1f}%")
-        if margin_rate == 0.33:
-            st.sidebar.caption("ℹ️ 33% is a common GC target")
-    
-    # Show suggested range
-    if compliance_mode in [ComplianceMode.GOVERNMENT_GRANT.value, ComplianceMode.GOVERNMENT_CONTRACT.value]:
-        if margin_rate > 0.15:
-            st.sidebar.warning("⚠️ Government contracts typically question margins above 15%")
-    else:
-        suggested_min = trade_preset['suggested_margin_min'] * 100
-        suggested_max = trade_preset['suggested_margin_max'] * 100
-        if margin_rate * 100 < suggested_min or margin_rate * 100 > suggested_max:
-            st.sidebar.info(f"ℹ️ Typical range for {trade_preset['description']}: {suggested_min:.0f}%-{suggested_max:.0f}%")
-    
-    # Tax Rate
-    st.sidebar.markdown("### Sales Tax")
+    # Tax and margin settings
     tax_rate = st.sidebar.slider(
         "Tax Rate (%)",
         min_value=0.0,
         max_value=20.0,
         value=8.25,
         step=0.25,
-        help="Sales tax rate on materials"
+        help="Tax rate to apply to marked-up prices"
     ) / 100
     
-    # Advanced Settings (Custom Mode Only)
-    if compliance_mode == ComplianceMode.CUSTOM.value:
-        with st.sidebar.expander("⚙️ Advanced Calculation Settings"):
-            st.markdown("**Calculation Method**")
-            calc_method = st.selectbox(
-                "How to calculate pricing:",
-                options=[m.value for m in CalculationMethod],
-                format_func=lambda x: {
-                    "margin_then_tax": "Margin-Then-Tax (default)",
-                    "tax_separate": "Tax-Separate (government standard)",
-                    "additive": "Additive (simplest)",
-                    "cost_plus_fee": "Cost-Plus-Fixed-Fee"
-                }[x],
-                index=0,
-                help="Different calculation methods for different business models"
-            )
-            calculation_method = CalculationMethod(calc_method)
-            
-            if calc_method == "cost_plus_fee":
-                fixed_fee = st.number_input(
-                    "Fixed Fee ($)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=100.0,
-                    help="Fixed dollar fee for cost-plus contracts"
-                )
-            else:
-                fixed_fee = 0.0
-            
-            st.markdown("**Invoice Format**")
-            inv_format = st.selectbox(
-                "Output format:",
-                options=[f.value for f in InvoiceFormat],
-                format_func=lambda x: {
-                    "detailed_audit": "Detailed Audit Trail (recommended)",
-                    "far_compliant": "FAR-Compliant Government",
-                    "grant_compliance": "Grant Compliance (ARPA/BEAD)",
-                    "clean_client": "Clean Client Invoice",
-                    "combo": "Combo (Audit + Clean)"
-                }[x],
-                index=0,
-                help="How the invoice is presented to the client"
-            )
-            invoice_format = InvoiceFormat(inv_format)
-    else:
-        # Auto-select based on compliance mode
-        if compliance_mode == ComplianceMode.GOVERNMENT_GRANT.value:
-            calculation_method = CalculationMethod.TAX_SEPARATE
-            invoice_format = InvoiceFormat.GRANT_COMPLIANCE
-            fixed_fee = 0.0
-        elif compliance_mode == ComplianceMode.GOVERNMENT_CONTRACT.value:
-            calculation_method = CalculationMethod.TAX_SEPARATE
-            invoice_format = InvoiceFormat.FAR_COMPLIANT
-            fixed_fee = 0.0
-        else:  # Commercial
-            calculation_method = CalculationMethod.MARGIN_THEN_TAX
-            invoice_format = InvoiceFormat.DETAILED_AUDIT
-            fixed_fee = 0.0
-    
-    # Show current configuration summary
-    with st.sidebar.expander("📊 Current Configuration Summary"):
-        st.write(f"**Mode:** {compliance_mode.title()}")
-        st.write(f"**Trade:** {trade_preset['description']}")
-        if is_gross_margin:
-            st.write(f"**Gross Margin:** {margin_rate*100:.1f}%")
-            st.write(f"**Markup:** {margin_to_markup(margin_rate)*100:.1f}%")
-        else:
-            st.write(f"**Markup:** {margin_rate*100:.1f}%")
-            st.write(f"**Gross Margin:** {markup_to_margin(margin_rate)*100:.1f}%")
-        st.write(f"**Tax:** {tax_rate*100:.2f}%")
-        st.write(f"**Calc Method:** {calculation_method.value.replace('_', ' ').title()}")
-        st.write(f"**Invoice Format:** {invoice_format.value.replace('_', ' ').title()}")
-        
-        # Example calculation
-        st.markdown("**Example: $100 item**")
-        processor = PricingProcessor(
-            tax_rate=tax_rate,
-            margin_rate=margin_rate,
-            calculation_method=calculation_method,
-            is_gross_margin=is_gross_margin,
-            fixed_fee=fixed_fee
-        )
-        result = processor.calculate_composite_rate(100.0)
-        st.write(f"Cost: $100.00")
-        st.write(f"Margin: ${result['margin_dollars']:.2f}")
-        st.write(f"Tax: ${result['tax_dollars']:.2f}")
-        st.write(f"**Total: ${result['composite_rate']:.2f}**")
-    
-    # Feedback Section
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 💬 Feedback")
-    st.sidebar.markdown("Help us improve Procure-Me!")
-    
-    feedback_text = st.sidebar.text_area(
-        "Share your thoughts:",
-        placeholder="Feature requests, bugs, suggestions...",
-        height=100,
-        label_visibility="collapsed",
-        key="feedback_text"
-    )
-    
-    if st.sidebar.button("📤 Send Feedback", use_container_width=True):
-        if feedback_text.strip():
-            st.sidebar.success("✅ Thanks for your feedback!")
-            st.sidebar.info("We'll review it soon!")
-            # TODO: Future - integrate with Google Forms API or email service
-        else:
-            st.sidebar.warning("Please enter some feedback first")
-    
-    st.sidebar.markdown(
-        "📋 [Take our 2-min survey](https://github.com/SuperGremlin25/Procure-Me/issues) for a chance to get early access to premium features!",
-        unsafe_allow_html=True
-    )
-    
-    # First-time user helper
-    if 'files_processed' not in st.session_state:
-        st.session_state.files_processed = 0
-    
-    # ── PROJECT TYPE SELECTION ────────────────────────────
-    st.markdown('<h2 class="section-header">Select Quote Type</h2>', 
-                unsafe_allow_html=True)
-    
-    st.markdown("""
-    **What type of quote are you processing?**
-    
-    Choose the quote type that matches your vendor document:
-    """)
-    
-    project_type = st.radio(
-        "Quote Type:",
-        options=["📦 Materials Only", "👷 Labor Only", "🏗️ Full Build (Materials + Labor)"],
-        index=0,
-        help="Select what type of quote you're uploading",
-        horizontal=True
-    )
-    
-    # Store in session state
-    if project_type == "📦 Materials Only":
-        st.session_state['quote_type'] = "materials"
-        st.info("**Materials Quote** - You'll upload vendor pricing for materials (conduit, cable, hardware, etc.)")
-    elif project_type == "👷 Labor Only":
-        st.session_state['quote_type'] = "labor"
-        st.info("**Labor Estimate** - You'll enter labor tasks, hours, and rates")
-    else:
-        st.session_state['quote_type'] = "full_build"
-        st.info("**Full Build Quote** - Combined materials and labor for complete project pricing")
-    
-    st.markdown("---")
+    margin_rate = st.sidebar.slider(
+        "Margin Rate (%)",
+        min_value=0.0,
+        max_value=50.0,
+        value=10.0,
+        step=1.0,
+        help="Margin/markup rate to apply to vendor costs"
+    ) / 100
     
     # File upload section
     st.markdown('<h2 class="section-header">Upload Vendor Quote</h2>', 
                 unsafe_allow_html=True)
-    
-    # Welcome message for first-time users
-    if st.session_state.files_processed == 0:
-        st.info("""
-        👋 **Welcome!** Upload your first vendor quote to get started. 
-        Supported formats: Excel (.xlsx, .xls) or PDF.
-        
-        💡 **Tip:** Use the sidebar to adjust margin and tax rates before processing.
-        """)
     
     uploaded_file = st.file_uploader(
         "Choose a file",
@@ -605,110 +236,6 @@ def process_quote_tab(materials_db, labor_db):
         if uploaded_file.size > 50 * 1024 * 1024:
             st.error("File too large. Please upload a file smaller than 50MB.")
             return
-        
-        st.success(f"✅ File uploaded: {uploaded_file.name}")
-        
-        # ── VENDOR VALIDATION (NEW) ──────────────────────────────
-        st.markdown("---")
-        st.markdown('<h3>⚠️ STEP 1: Verify Vendor Information</h3>', unsafe_allow_html=True)
-        st.markdown("""
-        **Why this matters:** Accurate vendor identification helps with column mapping and future quote comparison features.
-        """)
-        
-        # Initialize vendor detector
-        detector = VendorDetector()
-        
-        # Try filename detection first
-        filename_result = detector.detect_from_filename(uploaded_file.name)
-        
-        # For content detection, we need to preview the file
-        vendor_name = None
-        try:
-            # Quick preview parse (first 15 rows only)
-            if uploaded_file.type == 'application/pdf':
-                # For PDF, we'll skip content detection to avoid double parsing
-                content_result = {"vendor_name": "Unknown", "confidence": 0.0}
-            else:
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_preview:
-                    tmp_preview.write(uploaded_file.getbuffer())
-                    preview_path = tmp_preview.name
-                
-                # Read just first 15 rows for detection
-                preview_df = pd.read_excel(preview_path, nrows=15)
-                content_result = detector.detect_from_dataframe(preview_df)
-                
-                # Reset file pointer for later processing
-                uploaded_file.seek(0)
-                
-                # Clean up temp file
-                try:
-                    os.unlink(preview_path)
-                except OSError:
-                    pass
-        except Exception as e:
-            content_result = {"vendor_name": "Unknown", "confidence": 0.0}
-        
-        # Use best result
-        best_result = detector.combine_results(content_result, filename_result)
-        
-        # Display detection results with appropriate UI
-        if best_result['confidence'] >= 0.7:
-            st.success(f"✅ **Vendor Detected:** {best_result['vendor_name']} (Confidence: {best_result['confidence']:.0%})")
-            if best_result['indicators']:
-                with st.expander("Detection Details"):
-                    for indicator in best_result['indicators'][:3]:
-                        st.caption(f"• {indicator}")
-            vendor_name = st.text_input(
-                "Confirm or Edit Vendor Name",
-                value=best_result['vendor_name'],
-                help="Verify this is correct before proceeding",
-                key="vendor_name_input"
-            )
-            
-        elif best_result['confidence'] >= 0.4:
-            st.warning(f"⚠️ **Possible Vendor:** {best_result['vendor_name']} (Low Confidence: {best_result['confidence']:.0%})")
-            if best_result['indicators']:
-                with st.expander("Detection Details"):
-                    for indicator in best_result['indicators'][:3]:
-                        st.caption(f"• {indicator}")
-            vendor_name = st.text_input(
-                "Confirm or Edit Vendor Name",
-                value=best_result['vendor_name'],
-                help="Please verify this is correct - low confidence detection",
-                key="vendor_name_input"
-            )
-            
-        else:
-            st.error("🛑 **VENDOR NOT DETECTED**")
-            st.markdown("""
-            **Manual Entry Required**
-            
-            The vendor name could not be automatically detected from your quote file.
-            Please enter the vendor name manually to ensure accurate processing.
-            
-            💡 **Tip:** For better auto-detection in the future, ensure the vendor name 
-            appears in the header rows of your quote.
-            """)
-            vendor_name = st.text_input(
-                "Enter Vendor Name",
-                placeholder="e.g., Vendor Supply Co, ABC Electric, etc.",
-                help="Required field - cannot proceed without vendor name",
-                key="vendor_name_input"
-            )
-        
-        # Validation gate - prevent proceeding without vendor name
-        if not vendor_name or vendor_name.strip() == "" or vendor_name.strip().lower() == "unknown":
-            st.error("❌ **Vendor name is required to continue**")
-            st.info("Please enter a valid vendor name above to proceed with quote processing.")
-            st.stop()
-        
-        # Success - store vendor name for later use
-        st.session_state['current_vendor'] = vendor_name.strip()
-        st.success(f"✅ **Proceeding with vendor:** {vendor_name}")
-        
-        st.markdown("---")
-        st.markdown('<h3>📊 STEP 2: Process Quote File</h3>', unsafe_allow_html=True)
         
         # Check file type
         is_pdf = uploaded_file.type == 'application/pdf'
@@ -780,39 +307,17 @@ def process_quote_tab(materials_db, labor_db):
                     # Parse the selected sheet
                     df = parser.parse_file(temp_path, selected_sheet)
                     
-                    # Check for duplicate columns
-                    duplicates = parser.detect_duplicate_columns(df)
-                    
-                    if duplicates:
-                        st.warning(f"⚠️ Found {len(duplicates)} duplicate column name(s) in your file")
-                        
-                        # Auto-rename duplicates for now
-                        df = parser.rename_duplicate_columns(df)
-                        
-                        with st.expander("🔍 Duplicate Column Details", expanded=True):
-                            st.markdown("""
-                            **Duplicate columns have been automatically renamed:**
-                            
-                            When Excel files have duplicate column names, we append `.1`, `.2`, etc. to make them unique.
-                            You can now select the correct column in the mapping step below.
-                            """)
-                            
-                            for col_name, indices in duplicates.items():
-                                st.markdown(f"**'{col_name}'** appears {len(indices)} times")
-                                st.caption(f"Renamed to: {col_name}, {col_name}.1, {col_name}.2, etc.")
-                    
                     # Display raw data preview
                     st.markdown('<h3>Uploaded Data Preview</h3>', unsafe_allow_html=True)
                     st.dataframe(df.head(10), use_container_width=True)
             
             # ── Step 1: Column Mapping ──────────────────────────────
             st.markdown('<h3>Map Your Columns</h3>', unsafe_allow_html=True)
-            st.markdown("Select which columns in your file correspond to the required and optional fields.")
+            st.markdown("Select which columns in your file correspond to Description, Quantity, and Unit Cost.")
             
             # Auto-detect best columns by analyzing content
             detected = _detect_columns(df)
             all_cols = list(df.columns)
-            all_cols_with_none = ['(None)'] + all_cols
             
             def _col_index(detected_key, fallback):
                 col = detected.get(detected_key)
@@ -820,16 +325,9 @@ def process_quote_tab(materials_db, labor_db):
                     return all_cols.index(col)
                 return fallback
             
-            def _col_index_with_none(detected_key, fallback):
-                col = detected.get(detected_key)
-                if col and col in all_cols:
-                    return all_cols_with_none.index(col)
-                return fallback
+            map_col1, map_col2, map_col3 = st.columns(3)
             
-            st.markdown("**Required Columns:**")
-            req_row1 = st.columns(3)
-            
-            with req_row1[0]:
+            with map_col1:
                 desc_col = st.selectbox(
                     "Description Column",
                     options=all_cols,
@@ -837,7 +335,7 @@ def process_quote_tab(materials_db, labor_db):
                     help="Column containing material descriptions"
                 )
             
-            with req_row1[1]:
+            with map_col2:
                 qty_col = st.selectbox(
                     "Quantity Column",
                     options=all_cols,
@@ -845,7 +343,7 @@ def process_quote_tab(materials_db, labor_db):
                     help="Column containing quantities"
                 )
             
-            with req_row1[2]:
+            with map_col3:
                 cost_col = st.selectbox(
                     "Unit Cost Column",
                     options=all_cols,
@@ -853,49 +351,10 @@ def process_quote_tab(materials_db, labor_db):
                     help="Column containing unit costs/prices"
                 )
             
-            req_row2 = st.columns(3)
-            
-            with req_row2[0]:
-                uom_col = st.selectbox(
-                    "Unit of Measurement Column",
-                    options=all_cols,
-                    index=_col_index('uom', min(3, len(all_cols)-1)),
-                    help="Unit type: ea, ft, bag, box, etc."
-                )
-            
-            with req_row2[1]:
-                total_col = st.selectbox(
-                    "Vendor Total Column",
-                    options=all_cols,
-                    index=_col_index('total', min(4, len(all_cols)-1)),
-                    help="Vendor's line total for validation"
-                )
-            
-            st.markdown("**Optional Columns:**")
-            opt_col1 = st.columns(1)[0]
-            
-            with opt_col1:
-                part_col_sel = st.selectbox(
-                    "Part Number Column",
-                    options=all_cols_with_none,
-                    index=_col_index_with_none('part', 0),
-                    help="Supplier part number (optional — useful for ordering)"
-                )
-                part_col = None if part_col_sel == '(None)' else part_col_sel
-            
             # ── Step 2: Clean data & extract tax/freight ──────────
-            processor = PricingProcessor(
-                tax_rate=tax_rate,
-                margin_rate=margin_rate,
-                calculation_method=calculation_method,
-                invoice_format=invoice_format,
-                trade_type=trade_type_enum,
-                is_gross_margin=is_gross_margin,
-                fixed_fee=fixed_fee
-            )
+            processor = PricingProcessor(tax_rate=tax_rate, margin_rate=margin_rate)
             cleaned_df, extracted_tax, extracted_freight = processor.clean_vendor_quote(
-                df, desc_col=desc_col, qty_col=qty_col, cost_col=cost_col,
-                part_col=part_col, uom_col=uom_col, total_col=total_col
+                df, desc_col=desc_col, qty_col=qty_col, cost_col=cost_col
             )
             
             st.markdown('<h3>Cleaned Data Preview</h3>', unsafe_allow_html=True)
@@ -931,44 +390,25 @@ def process_quote_tab(materials_db, labor_db):
                 help="Enter the shipping cost for this job. Added as a flat line item — no markup applied."
             )
             
-            # ── Step 4: Project Name ──────────────────────────────
-            st.markdown('<h3>Name Your Project</h3>', unsafe_allow_html=True)
-            project_name = st.text_input(
-                "Project Name",
-                placeholder="e.g., Starlord, Main Street Fiber, Site 42...",
-                help="This name will be used as the filename prefix for all downloads",
-                value="Quote"
-            )
-            
-            # Clean project name for use in filenames
-            safe_project_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in project_name)
-            safe_project_name = safe_project_name.replace(' ', '_')
-            
-            # ── Step 5: Process Quote ─────────────────────────────
+            # ── Step 4: Process Quote ─────────────────────────────
             if st.button("Process Quote", type="primary"):
                 processor = PricingProcessor(
                     tax_rate=tax_rate,
                     margin_rate=margin_rate,
-                    shipping_cost=shipping_cost,
-                    calculation_method=calculation_method,
-                    invoice_format=invoice_format,
-                    trade_type=trade_type_enum,
-                    is_gross_margin=is_gross_margin,
-                    fixed_fee=fixed_fee
+                    shipping_cost=shipping_cost
                 )
                 
-                processed_df = processor.process_quote(cleaned_df)
+                processed_df = processor.process_quote(
+                    cleaned_df, desc_col=desc_col, qty_col=qty_col, cost_col=cost_col
+                )
                 
                 st.markdown('<h2 class="section-header">Processed Quote</h2>', 
                             unsafe_allow_html=True)
                 
-                # Show calculation info based on method
-                example_calc = processor.calculate_composite_rate(100.0)
                 st.markdown(f"""
                 <div class="info-box">
-                    <strong>Calculation Method:</strong> {example_calc['method']}<br>
-                    <strong>Formula:</strong> {example_calc['formula_text']}<br>
-                    <strong>Example ($100):</strong> Cost: $100.00 → Margin: ${example_calc['margin_dollars']:.2f} → Tax: ${example_calc['tax_dollars']:.2f} → Total: ${example_calc['composite_rate']:.2f}<br>
+                    <strong>Calculation:</strong> Vendor Cost &times; (1 + {margin_rate*100:.1f}% margin) &times; (1 + {tax_rate*100:.2f}% tax) = Composite Unit Rate<br>
+                    <strong>Multiplier:</strong> {(1+margin_rate)*(1+tax_rate):.4f}x<br>
                     <strong>Shipping:</strong> ${shipping_cost:,.2f} (pass-through)
                 </div>
                 """, unsafe_allow_html=True)
@@ -994,8 +434,6 @@ def process_quote_tab(materials_db, labor_db):
                 # ── Downloads ─────────────────────────────────────
                 st.markdown('<h3>Download Results</h3>', unsafe_allow_html=True)
                 
-                # Excel Downloads
-                st.markdown("**Excel Workbooks:**")
                 dl_col1, dl_col2, dl_col3, dl_col4, dl_col5 = st.columns(5)
                 
                 with dl_col1:
@@ -1007,7 +445,7 @@ def process_quote_tab(materials_db, labor_db):
                     st.download_button(
                         label="📥 Audit (.xlsx)",
                         data=audit_buffer.getvalue(),
-                        file_name=f"{safe_project_name}_internal_audit.xlsx",
+                        file_name="internal_audit_quote.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
@@ -1020,65 +458,19 @@ def process_quote_tab(materials_db, labor_db):
                     st.download_button(
                         label="📥 Client (.xlsx)",
                         data=client_buffer.getvalue(),
-                        file_name=f"{safe_project_name}_client_quote.xlsx",
+                        file_name="client_quote.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
                 with dl_col3:
-                    # Generate combined workbook with proper formatting
                     combined_buffer = BytesIO()
-                    
-                    # Generate audit with formulas
-                    audit_buffer_temp = BytesIO()
-                    processor.generate_internal_audit_spreadsheet(
-                        processed_df, tax_rate=tax_rate, margin_rate=margin_rate,
-                        output_path=audit_buffer_temp, shipping_cost=shipping_cost
-                    )
-                    
-                    # Generate client sheet
-                    client_buffer_temp = BytesIO()
-                    processor.generate_client_spreadsheet(
-                        processed_df, output_path=client_buffer_temp,
-                        shipping_cost=shipping_cost
-                    )
-                    
-                    # Combine both into one workbook
-                    import openpyxl
-                    from openpyxl import load_workbook
-                    
-                    # Load audit workbook
-                    audit_buffer_temp.seek(0)
-                    audit_wb = load_workbook(audit_buffer_temp)
-                    
-                    # Load client workbook and copy its sheet
-                    client_buffer_temp.seek(0)
-                    client_wb = load_workbook(client_buffer_temp)
-                    client_sheet = client_wb.active
-                    
-                    # Copy client sheet to audit workbook
-                    audit_wb.create_sheet('Client_Quote')
-                    target_sheet = audit_wb['Client_Quote']
-                    for row in client_sheet.iter_rows():
-                        for cell in row:
-                            target_cell = target_sheet[cell.coordinate]
-                            target_cell.value = cell.value
-                            if cell.has_style:
-                                target_cell.font = cell.font.copy()
-                                target_cell.border = cell.border.copy()
-                                target_cell.fill = cell.fill.copy()
-                                target_cell.number_format = cell.number_format
-                                target_cell.alignment = cell.alignment.copy()
-                    
-                    # Rename audit sheet
-                    audit_wb['Audit_Details'].title = 'Internal_Audit'
-                    
-                    # Save combined workbook
-                    audit_wb.save(combined_buffer)
-                    
+                    with pd.ExcelWriter(combined_buffer, engine='xlsxwriter') as writer:
+                        audit_df.to_excel(writer, sheet_name='Internal_Audit', index=False)
+                        client_df.to_excel(writer, sheet_name='Client_Quote', index=False)
                     st.download_button(
                         label="📥 Combined (.xlsx)",
                         data=combined_buffer.getvalue(),
-                        file_name=f"{safe_project_name}_quote_complete.xlsx",
+                        file_name="quote_complete.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 
@@ -1090,7 +482,7 @@ def process_quote_tab(materials_db, labor_db):
                     st.download_button(
                         label="📥 Summary (.md)",
                         data=md_report,
-                        file_name=f"{safe_project_name}_summary.md",
+                        file_name="quote_summary.md",
                         mime="text/markdown"
                     )
                 
@@ -1103,304 +495,24 @@ def process_quote_tab(materials_db, labor_db):
                         st.download_button(
                             label="📥 Summary (.docx)",
                             data=docx_bytes,
-                            file_name=f"{safe_project_name}_summary.docx",
+                            file_name="quote_summary.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         )
                     except ImportError:
                         st.caption("Install python-docx for .docx export")
-                
-                # Add Cleaned Data + CSV Downloads
-                st.markdown("**Additional Exports:**")
-                csv_col1, csv_col2, csv_col3, csv_col4 = st.columns(4)
-                
-                with csv_col1:
-                    # Cleaned Data Excel
-                    cleaned_buffer = BytesIO()
-                    with pd.ExcelWriter(cleaned_buffer, engine='xlsxwriter') as writer:
-                        cleaned_df.to_excel(writer, sheet_name='Cleaned_Data', index=False)
-                    st.download_button(
-                        label="📥 Cleaned (.xlsx)",
-                        data=cleaned_buffer.getvalue(),
-                        file_name=f"{safe_project_name}_cleaned_data.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        help="Raw cleaned data before pricing calculations"
-                    )
-                
-                with csv_col2:
-                    # Cleaned Data CSV
-                    cleaned_csv = cleaned_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Cleaned (.csv)",
-                        data=cleaned_csv,
-                        file_name=f"{safe_project_name}_cleaned_data.csv",
-                        mime="text/csv",
-                        help="Raw cleaned data in CSV format"
-                    )
-                
-                with csv_col3:
-                    # Audit CSV
-                    audit_csv = audit_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Audit (.csv)",
-                        data=audit_csv,
-                        file_name=f"{safe_project_name}_internal_audit.csv",
-                        mime="text/csv",
-                        help="Internal audit trail in CSV format"
-                    )
-                
-                with csv_col4:
-                    # Client CSV
-                    client_csv = client_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Client (.csv)",
-                        data=client_csv,
-                        file_name=f"{safe_project_name}_client_quote.csv",
-                        mime="text/csv",
-                        help="Client quote in CSV format"
-                    )
                 
                 # Success message
                 st.markdown("""
                 <div class="success-message">
                     ✅ Quote processed successfully! 
                     <br><br>
-                    <strong>Excel Downloads:</strong>
-                    <br>• <strong>Audit</strong> — Step-by-step dollar breakdown with Part #, UOM (Vendor Cost → +Margin $ → +Tax $ → Composite Rate)
-                    <br>• <strong>Client</strong> — Clean 6-column quote with Part #, Description, UOM, Qty, Rate, Total
-                    <br>• <strong>Combined</strong> — Both audit and client sheets in one workbook
-                    <br>• <strong>Summary</strong> — Markdown or Word report with totals and margin analysis
-                    <br><br>
-                    <strong>Additional Exports:</strong>
-                    <br>• <strong>Cleaned Data</strong> — Raw extracted data (.xlsx or .csv)
-                    <br>• <strong>CSV Exports</strong> — All sheets available in CSV format for data portability
+                    <strong>Downloads:</strong>
+                    <br>• <strong>Audit</strong> — Full formula trail (Vendor Cost → Margin → Tax → Composite Rate → Total)
+                    <br>• <strong>Client</strong> — 3-column clean quote (Description | Composite Unit Rate | Total)
+                    <br>• <strong>Combined</strong> — Both sheets in one Excel file
+                    <br>• <strong>Summary</strong> — Report with totals and margin analysis (.md or .docx)
                 </div>
                 """, unsafe_allow_html=True)
-                
-                # Store processed data in session state for manual additions
-                st.session_state['base_cleaned_df'] = cleaned_df.copy()
-                st.session_state['current_project_name'] = safe_project_name
-                st.session_state['current_tax_rate'] = tax_rate
-                st.session_state['current_margin_rate'] = margin_rate
-                st.session_state['current_shipping_cost'] = shipping_cost
-                st.session_state['extracted_tax'] = extracted_tax
-                st.session_state['extracted_freight'] = extracted_freight
-                st.session_state['current_desc_col'] = desc_col
-                st.session_state['current_qty_col'] = qty_col
-                st.session_state['current_cost_col'] = cost_col
-                st.session_state['current_uom_col'] = uom_col
-                st.session_state['current_total_col'] = total_col
-                st.session_state['current_part_col'] = part_col
-                
-                # Initialize manual items if not exists
-                if 'manual_items' not in st.session_state:
-                    st.session_state['manual_items'] = []
-                
-                # Initialize item templates if not exists
-                if 'item_templates' not in st.session_state:
-                    st.session_state['item_templates'] = []
-                
-                # Increment files processed counter
-                st.session_state.files_processed += 1
-                
-                # ── Manual Line Items ─────────────────────────────
-                st.markdown('---')
-                st.markdown('<h2 class="section-header">➕ Add Manual Line Items</h2>', unsafe_allow_html=True)
-                st.markdown("""
-                Add items not included in the vendor quote (e.g., Bollards, Pea gravel, additional materials).
-                These will be included in all downloads and pricing calculations.
-                """)
-                
-                with st.expander(f"➕ Manual Items ({len(st.session_state['manual_items'])} added)", expanded=len(st.session_state['manual_items']) == 0):
-                    
-                    # Tabs for different input methods
-                    manual_tab1, manual_tab2, manual_tab3 = st.tabs(["Add Single Item", "Bulk Upload CSV", "Saved Templates"])
-                    
-                    # Tab 1: Single item addition
-                    with manual_tab1:
-                        with st.form("add_manual_item"):
-                            st.markdown("**Add a single line item:**")
-                            
-                            man_col1, man_col2 = st.columns(2)
-                            with man_col1:
-                                man_desc = st.text_input("Material Description*", placeholder="e.g., Bollards, Pea gravel")
-                                man_qty = st.number_input("Quantity*", min_value=0.0, step=1.0, value=1.0)
-                                man_cost = st.number_input("Vendor Unit Cost*", min_value=0.0, step=0.01, format="%.2f")
-                            
-                            with man_col2:
-                                man_uom = st.selectbox("Unit of Measure*", ["ea", "ft", "bag", "box", "roll", "spool", "lb", "ton", "yard", "other"])
-                                man_part = st.text_input("Part Number (optional)", placeholder="Vendor SKU or part #")
-                                save_template = st.checkbox("Save as template for future use")
-                            
-                            submit_col1, submit_col2 = st.columns([1, 3])
-                            with submit_col1:
-                                submitted = st.form_submit_button("Add to Quote", type="primary")
-                            
-                            if submitted:
-                                if not man_desc or man_desc.strip() == "":
-                                    st.error("Description is required")
-                                elif man_qty <= 0:
-                                    st.error("Quantity must be greater than 0")
-                                elif man_cost < 0:
-                                    st.error("Cost cannot be negative")
-                                else:
-                                    new_item = {
-                                        'Description': man_desc.strip(),
-                                        'Quantity': man_qty,
-                                        'Unit Cost': man_cost,
-                                        'Unit': man_uom,
-                                        'Part Number': man_part.strip() if man_part else 'MANUAL-ENTRY',
-                                        'Total': man_qty * man_cost,
-                                        'Source': 'Manual Entry'
-                                    }
-                                    st.session_state['manual_items'].append(new_item)
-                                    
-                                    # Save as template if requested
-                                    if save_template:
-                                        template = {
-                                            'name': man_desc.strip(),
-                                            'uom': man_uom,
-                                            'part': man_part.strip() if man_part else ''
-                                        }
-                                        if template not in st.session_state['item_templates']:
-                                            st.session_state['item_templates'].append(template)
-                                    
-                                    st.success(f"✅ Added: {man_desc}")
-                                    st.rerun()
-                    
-                    # Tab 2: CSV bulk upload
-                    with manual_tab2:
-                        st.markdown("""
-                        **Upload multiple items at once via CSV**
-                        
-                        CSV format: `Description, Quantity, Unit Cost, Unit, Part Number`
-                        
-                        Example:
-                        ```
-                        Bollards,10,150.00,ea,BOLL-001
-                        Pea Gravel,5,45.00,bag,GRAV-PEA
-                        Warning Tape,3,12.50,roll,TAPE-WARN
-                        ```
-                        """)
-                        
-                        uploaded_csv = st.file_uploader("Upload CSV file", type=['csv'], key="manual_csv")
-                        
-                        if uploaded_csv:
-                            try:
-                                csv_df = pd.read_csv(uploaded_csv)
-                                
-                                # Validate columns
-                                required_cols = ['Description', 'Quantity', 'Unit Cost', 'Unit']
-                                if not all(col in csv_df.columns for col in required_cols):
-                                    st.error(f"CSV must have columns: {', '.join(required_cols)}")
-                                else:
-                                    st.dataframe(csv_df.head(10), use_container_width=True)
-                                    st.caption(f"Preview: {len(csv_df)} items")
-                                    
-                                    if st.button("Import All Items", type="primary", key="import_csv_btn"):
-                                        for idx, row in csv_df.iterrows():
-                                            new_item = {
-                                                'Description': str(row['Description']).strip(),
-                                                'Quantity': float(row['Quantity']),
-                                                'Unit Cost': float(row['Unit Cost']),
-                                                'Unit': str(row['Unit']).strip(),
-                                                'Part Number': str(row.get('Part Number', 'MANUAL-ENTRY')).strip(),
-                                                'Total': float(row['Quantity']) * float(row['Unit Cost']),
-                                                'Source': 'CSV Import'
-                                            }
-                                            st.session_state['manual_items'].append(new_item)
-                                        
-                                        st.success(f"✅ Imported {len(csv_df)} items")
-                                        st.rerun()
-                            except Exception as e:
-                                st.error(f"Error reading CSV: {str(e)}")
-                    
-                    # Tab 3: Templates
-                    with manual_tab3:
-                        if len(st.session_state['item_templates']) == 0:
-                            st.info("No saved templates yet. Add items with 'Save as template' checked to create reusable templates.")
-                        else:
-                            st.markdown("**Quick-add from saved templates:**")
-                            
-                            for idx, template in enumerate(st.session_state['item_templates']):
-                                temp_col1, temp_col2, temp_col3, temp_col4 = st.columns([3, 1, 1, 1])
-                                
-                                with temp_col1:
-                                    st.text(f"{template['name']} ({template['uom']})")
-                                
-                                with temp_col2:
-                                    qty = st.number_input("Qty", min_value=0.0, step=1.0, value=1.0, key=f"temp_qty_{idx}")
-                                
-                                with temp_col3:
-                                    cost = st.number_input("Cost", min_value=0.0, step=0.01, key=f"temp_cost_{idx}")
-                                
-                                with temp_col4:
-                                    if st.button("Add", key=f"temp_add_{idx}"):
-                                        new_item = {
-                                            'Description': template['name'],
-                                            'Quantity': qty,
-                                            'Unit Cost': cost,
-                                            'Unit': template['uom'],
-                                            'Part Number': template['part'] if template['part'] else 'MANUAL-ENTRY',
-                                            'Total': qty * cost,
-                                            'Source': 'Template'
-                                        }
-                                        st.session_state['manual_items'].append(new_item)
-                                        st.rerun()
-                    
-                    # Display added manual items
-                    if len(st.session_state['manual_items']) > 0:
-                        st.markdown("---")
-                        st.markdown(f"**Added Manual Items ({len(st.session_state['manual_items'])})**")
-                        
-                        manual_items_df = pd.DataFrame(st.session_state['manual_items'])
-                        st.dataframe(manual_items_df, use_container_width=True)
-                        
-                        item_col1, item_col2, item_col3 = st.columns(3)
-                        
-                        with item_col1:
-                            if st.button("🔄 Reprocess Quote with Manual Items", type="primary"):
-                                # Combine vendor quote with manual items
-                                base_df = st.session_state['base_cleaned_df'].copy()
-                                
-                                # Create manual items dataframe matching base structure
-                                manual_df_rows = []
-                                for item in st.session_state['manual_items']:
-                                    row = {
-                                        st.session_state['current_desc_col']: item['Description'],
-                                        st.session_state['current_qty_col']: item['Quantity'],
-                                        st.session_state['current_cost_col']: item['Unit Cost'],
-                                        st.session_state['current_uom_col']: item['Unit'],
-                                        st.session_state['current_total_col']: item['Total']
-                                    }
-                                    if st.session_state['current_part_col']:
-                                        row[st.session_state['current_part_col']] = item['Part Number']
-                                    manual_df_rows.append(row)
-                                
-                                manual_df = pd.DataFrame(manual_df_rows)
-                                
-                                # Combine dataframes
-                                combined_df = pd.concat([base_df, manual_df], ignore_index=True)
-                                
-                                st.success(f"✅ Reprocessing quote with {len(st.session_state['manual_items'])} manual items...")
-                                st.info("Scroll up to download updated files with manual items included.")
-                                
-                                # Would trigger reprocessing here - for now just show success
-                                # In full implementation, this would regenerate all outputs
-                        
-                        with item_col2:
-                            if st.button("🗑️ Clear All Manual Items"):
-                                st.session_state['manual_items'] = []
-                                st.rerun()
-                        
-                        with item_col3:
-                            # Download manual items as CSV
-                            manual_csv = manual_items_df.to_csv(index=False)
-                            st.download_button(
-                                label="📥 Export Manual Items",
-                                data=manual_csv,
-                                file_name=f"{st.session_state['current_project_name']}_manual_items.csv",
-                                mime="text/csv"
-                            )
                 
                 # ── Auto-add materials ────────────────────────────
                 st.markdown('<h3>Add New Materials to Database</h3>', unsafe_allow_html=True)
@@ -1463,11 +575,11 @@ def process_quote_tab(materials_db, labor_db):
             try:
                 if 'temp_path' in locals() and os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except OSError:
+            except:
                 pass
 
 
-def build_quote_tab(materials_db, labor_db):
+def build_quote_tab(materials_db):
     """Manual quote building tab."""
     st.markdown('<h2 class="section-header">Build Quote Manually</h2>', 
                 unsafe_allow_html=True)
@@ -1475,116 +587,49 @@ def build_quote_tab(materials_db, labor_db):
     # Get materials by category
     materials_by_category = materials_db.get_materials_by_category()
     
-    # Get labor tasks by category
-    labor_by_category = labor_db.get_tasks_by_category()
-    
     # Initialize session state for quote items
     if 'quote_items' not in st.session_state:
         st.session_state.quote_items = []
     
-    if 'labor_items' not in st.session_state:
-        st.session_state.labor_items = []
-    
-    # Add items section with tabs for Materials and Labor
+    # Add items section
     st.markdown('<h3>Add Items to Quote</h3>', unsafe_allow_html=True)
     
-    materials_tab, labor_tab = st.tabs(["📦 Materials", "👷 Labor"])
+    col1, col2, col3 = st.columns([2, 1, 1])
     
-    # ──────────────────────────────────────────────────────────
-    # MATERIALS TAB
-    # ──────────────────────────────────────────────────────────
-    with materials_tab:
-        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-        
-        with col1:
-            # Material selection dropdown
-            category = st.selectbox("Select Category", list(materials_by_category.keys()), key="mat_category")
-            materials_in_category = materials_by_category[category]
-            material_names = [m['name'] for m in materials_in_category]
-            selected_material = st.selectbox("Select Material", material_names, key="mat_select")
-        
-        with col2:
-            # Quantity input
-            quantity = st.number_input("Quantity", min_value=0, value=1, step=1, key="mat_qty")
-        
-        with col3:
-            # Unit cost override
+    with col1:
+        # Material selection dropdown
+        category = st.selectbox("Select Category", list(materials_by_category.keys()))
+        materials_in_category = materials_by_category[category]
+        material_names = [m['name'] for m in materials_in_category]
+        selected_material = st.selectbox("Select Material", material_names)
+    
+    with col2:
+        # Quantity input
+        quantity = st.number_input("Quantity", min_value=0, value=1, step=1)
+    
+    with col3:
+        # Add button
+        if st.button("Add to Quote", type="primary"):
             material = materials_db.find_material(selected_material)
-            default_cost = material['unit_cost'] if material else 0.0
-            material_cost = st.number_input("Unit Cost", min_value=0.0, value=default_cost, step=0.01, key="mat_cost",
-                                           help="Override default cost if needed", format="%.2f")
-        
-        with col4:
-            # Add button
-            if st.button("Add to Quote", type="primary", key="add_material"):
-                if material:
-                    # Clean the material name for display
-                    clean_name = materials_db._clean_material_name(material['name'])
-                    item = {
-                        'type': 'material',
-                        'name': clean_name,
-                        'part_number': material['part_number'],
-                        'quantity': quantity,
-                        'unit': material['unit'],
-                        'unit_cost': material_cost,
-                        'is_taxable': True
-                    }
-                    st.session_state.quote_items.append(item)
-                    st.success(f"Added {quantity} x {clean_name}")
-                    st.rerun()
+            if material:
+                # Clean the material name for display
+                clean_name = materials_db._clean_material_name(material['name'])
+                item = {
+                    'name': clean_name,
+                    'part_number': material['part_number'],
+                    'quantity': quantity,
+                    'unit': material['unit'],
+                    'unit_cost': material['unit_cost']
+                }
+                st.session_state.quote_items.append(item)
+                st.success(f"Added {quantity} x {clean_name}")
     
-    # ──────────────────────────────────────────────────────────
-    # LABOR TAB
-    # ──────────────────────────────────────────────────────────
-    with labor_tab:
-        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-        
-        with col1:
-            # Labor task selection dropdown
-            labor_category = st.selectbox("Select Category", list(labor_by_category.keys()), key="labor_category")
-            tasks_in_category = labor_by_category[labor_category]
-            task_names = [t['name'] for t in tasks_in_category]
-            selected_task = st.selectbox("Select Task", task_names, key="labor_select")
-        
-        with col2:
-            # Quantity input (hours/days/each)
-            labor_qty = st.number_input("Quantity", min_value=0.0, value=1.0, step=0.5, key="labor_qty")
-        
-        with col3:
-            # Rate override
-            task = labor_db.find_task(selected_task)
-            default_rate = task['base_rate'] if task else 0.0
-            labor_rate = st.number_input("Rate", min_value=0.0, value=default_rate, step=1.0, key="labor_rate",
-                                        help="Override default rate if needed")
-        
-        with col4:
-            # Tax toggle
-            labor_taxable = st.checkbox("Taxable", value=False, key="labor_taxable",
-                                       help="Labor is usually tax-exempt")
-            
-            # Add button
-            if st.button("Add to Quote", type="primary", key="add_labor"):
-                if task:
-                    labor_item = {
-                        'type': 'labor',
-                        'name': task['name'],
-                        'part_number': None,
-                        'quantity': labor_qty,
-                        'unit': task['unit'],
-                        'unit_cost': labor_rate,
-                        'is_taxable': labor_taxable
-                    }
-                    st.session_state.labor_items.append(labor_item)
-                    st.success(f"Added {labor_qty} {task['unit']} of {task['name']}")
-                    st.rerun()
-    
-    # Display quote items (materials + labor combined)
-    if st.session_state.quote_items or st.session_state.labor_items:
+    # Display quote items
+    if st.session_state.quote_items:
         st.markdown('<h3>Quote Items</h3>', unsafe_allow_html=True)
         
-        # Combine materials and labor items
-        all_items = st.session_state.quote_items + st.session_state.labor_items
-        quote_df = pd.DataFrame(all_items)
+        # Convert to DataFrame for display
+        quote_df = pd.DataFrame(st.session_state.quote_items)
         
         # Add calculations
         tax_rate = st.sidebar.slider("Tax Rate (%)", 0.0, 20.0, 8.25, 0.25) / 100
@@ -1592,57 +637,27 @@ def build_quote_tab(materials_db, labor_db):
         
         processor = PricingProcessor(tax_rate=tax_rate, margin_rate=margin_rate)
         
-        # Calculate composite rate and total for each item
-        def calculate_item_total(row):
-            result = processor.calculate_composite_rate(row['unit_cost'])
-            # If not taxable (labor), recalculate without tax
-            if not row.get('is_taxable', True):
-                # Apply only margin, no tax
-                margin_dollars = row['unit_cost'] * margin_rate
-                composite = row['unit_cost'] + margin_dollars
-            else:
-                composite = result['composite_rate']
-            return composite
-        
-        quote_df['composite_rate'] = quote_df.apply(calculate_item_total, axis=1)
+        quote_df['composite_rate'] = quote_df['unit_cost'].apply(processor.calculate_composite_rate)
         quote_df['total'] = (quote_df['quantity'] * quote_df['composite_rate']).round(2)
         
-        # Set column attributes for download methods
-        quote_df.attrs['desc_col'] = 'name'
-        quote_df.attrs['qty_col'] = 'quantity'
-        quote_df.attrs['cost_col'] = 'unit_cost'
-        quote_df.attrs['part_col'] = 'part_number'
-        quote_df.attrs['uom_col'] = 'unit'
-        
         # Display with formatting
-        display_df = quote_df[['type', 'name', 'quantity', 'unit', 'composite_rate', 'total', 'is_taxable']].copy()
-        display_df.columns = ['Type', 'Description', 'Quantity', 'Unit', 'Unit Price', 'Total', 'Taxable']
-        display_df['Type'] = display_df['Type'].map({'material': '📦', 'labor': '👷'})
-        display_df['Taxable'] = display_df['Taxable'].map({True: '✓', False: '✗'})
+        display_df = quote_df[['name', 'quantity', 'unit', 'composite_rate', 'total']].copy()
+        display_df.columns = ['Description', 'Quantity', 'Unit', 'Unit Price', 'Total']
         display_df['Unit Price'] = display_df['Unit Price'].map('${:,.2f}'.format)
         display_df['Total'] = display_df['Total'].map('${:,.2f}'.format)
         
         st.dataframe(display_df, use_container_width=True)
         
-        # Summary with separate materials/labor breakdown
-        materials_total = quote_df[quote_df['type'] == 'material']['total'].sum() if 'material' in quote_df['type'].values else 0
-        labor_total = quote_df[quote_df['type'] == 'labor']['total'].sum() if 'labor' in quote_df['type'].values else 0
+        # Summary
         total_amount = quote_df['total'].sum()
         
-        # Calculate tax breakdown
-        materials_cost = quote_df[quote_df['type'] == 'material']['unit_cost'].sum() if 'material' in quote_df['type'].values else 0
-        materials_tax = materials_cost * margin_rate * tax_rate if materials_cost > 0 else 0
-        labor_tax = 0  # Labor is tax-exempt by default
-        
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Materials", f"${materials_total:,.2f}")
+            st.metric("Subtotal (Cost)", f"${quote_df['unit_cost'].sum():,.2f}")
         with col2:
-            st.metric("Labor", f"${labor_total:,.2f}")
+            st.metric("With Margin & Tax", f"${total_amount:,.2f}")
         with col3:
-            st.metric("Total", f"${total_amount:,.2f}")
-        with col4:
-            st.metric("Tax (Materials only)", f"${materials_tax:,.2f}")
+            st.metric("Items", len(quote_df))
         
         # Download buttons
         col1, col2, col3 = st.columns(3)
@@ -1687,7 +702,6 @@ def build_quote_tab(materials_db, labor_db):
             with pd.ExcelWriter(combined_buffer, engine='xlsxwriter') as writer:
                 audit_df.to_excel(writer, sheet_name='Internal_Audit', index=False)
                 client_df_manual.to_excel(writer, sheet_name='Client_Quote', index=False)
-            combined_buffer.seek(0)  # Reset buffer position for reading
             
             st.download_button(
                 label="📥 Download Both",
@@ -1700,7 +714,6 @@ def build_quote_tab(materials_db, labor_db):
         # Clear button
         if st.button("Clear Quote", type="secondary"):
             st.session_state.quote_items = []
-            st.session_state.labor_items = []
             st.rerun()
 
 
@@ -1709,65 +722,18 @@ def materials_list_tab(materials_db):
     st.markdown('<h2 class="section-header">Materials Database</h2>', 
                 unsafe_allow_html=True)
     
-    st.markdown("""
-    Browse our comprehensive database of OSP fiber construction materials.
-    All pricing is placeholder ($0.00) - upload vendor quotes to populate actual costs.
-    """)
+    # Display materials table (hide sensitive columns)
+    materials_df = materials_db.to_dataframe(hide_sensitive=True)
     
-    # Get full materials dataframe with all columns
-    materials_df = materials_db.to_dataframe(hide_sensitive=False)
-    
-    # Stats row
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Total Materials", len(materials_df))
-    with col2:
-        st.metric("Categories", materials_df['category'].nunique())
-    with col3:
-        st.metric("Units of Measure", materials_df['unit'].nunique())
-    
-    st.markdown("---")
-    
-    # Filter row
-    filter_col1, filter_col2 = st.columns([1, 2])
-    
-    with filter_col1:
-        # Category filter
-        categories = sorted(materials_df['category'].unique().tolist())
-        selected_category = st.selectbox(
-            "Filter by Category",
-            ["All Categories"] + categories,
-            help="Filter materials by category"
-        )
-    
-    with filter_col2:
-        # Search filter
-        search_term = st.text_input(
-            "🔍 Search materials",
-            placeholder="e.g., conduit, fiber, splice, cable...",
-            help="Search by material name"
-        )
-    
-    # Apply filters
-    filtered_df = materials_df.copy()
-    
-    if selected_category != "All Categories":
-        filtered_df = filtered_df[filtered_df['category'] == selected_category]
+    # Search/filter
+    search_term = st.text_input("Search materials...")
     
     if search_term:
-        filtered_df = filtered_df[filtered_df['name'].str.contains(search_term, case=False, na=False)]
+        filtered_df = materials_df[materials_df['name'].str.contains(search_term, case=False)]
+    else:
+        filtered_df = materials_df
     
-    # Display filtered results
-    st.markdown(f"**Showing {len(filtered_df)} materials**")
-    
-    # Format for display - show only relevant columns
-    display_df = filtered_df[['name', 'category', 'unit', 'unit_cost']].copy()
-    display_df.columns = ['Material Name', 'Category', 'Unit', 'Unit Cost']
-    display_df['Unit Cost'] = display_df['Unit Cost'].map('${:,.2f}'.format)
-    
-    st.dataframe(display_df, use_container_width=True, height=600)
+    st.dataframe(filtered_df, use_container_width=True)
     
     # Edit existing materials
     with st.expander("Edit Material Pricing"):
@@ -1970,243 +936,6 @@ def materials_list_tab(materials_db):
         Uses the built-in materials database with standard OSP items.
         You can add custom materials in the Materials List tab.
         """)
-
-
-def gis_quote_tab(materials_db, labor_db):
-    """GIS-based quote generation from design files."""
-    
-    if not GIS_AVAILABLE:
-        st.warning("⚠️ GIS features not available")
-        st.info(
-            "To enable GIS quote generation, install required packages:\n\n"
-            "```\npip install geopandas shapely fiona pyproj ezdxf simplekml rtree streamlit-folium folium\n```"
-        )
-        return
-    
-    st.markdown('<h2>📍 GIS Quote Builder</h2>', unsafe_allow_html=True)
-    st.markdown(
-        "Upload GIS design files (Shapefile, GeoJSON, KML, etc.) to automatically "
-        "generate quotes based on measured cable runs, splice points, and equipment locations."
-    )
-    
-    # File upload
-    st.markdown("### 1. Upload Design File")
-    
-    uploaded_file = st.file_uploader(
-        "Select GIS File",
-        type=['shp', 'geojson', 'json', 'kml', 'kmz', 'gpkg', 'dxf'],
-        help="Supported formats: Shapefile, GeoJSON, KML/KMZ, GeoPackage, DXF"
-    )
-    
-    if uploaded_file is None:
-        st.info("👆 Upload a GIS file to get started")
-        
-        with st.expander("📖 Supported File Formats"):
-            st.markdown("""
-            **Shapefile (.shp)** - Most common format, exports from Vetro, ArcGIS, QGIS
-            
-            **GeoJSON (.geojson, .json)** - Modern web-friendly format
-            
-            **KML/KMZ (.kml, .kmz)** - Google Earth format
-            
-            **GeoPackage (.gpkg)** - Modern SQLite-based format
-            
-            **DXF (.dxf)** - AutoCAD design files
-            
-            **Note:** For Shapefile uploads, you may need to upload the .shp, .dbf, .shx, and .prj files together.
-            """)
-        
-        with st.expander("🎯 How It Works"):
-            st.markdown("""
-            1. **Upload** your GIS design file
-            2. **Review** detected features and attributes
-            3. **Map** attributes to materials (auto-detected when possible)
-            4. **Generate** quote with materials and labor automatically calculated
-            5. **Download** complete quote ready for client
-            
-            The system automatically:
-            - Calculates cable lengths from line features
-            - Counts splice points based on distance
-            - Selects appropriate conduit sizes
-            - Estimates labor hours by install method
-            - Applies your margin and tax rates
-            """)
-        return
-    
-    # Save uploaded file temporarily
-    import tempfile
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
-        temp_path = tmp_file.name
-    
-    try:
-        # Parse GIS file
-        parser = GISParser()
-        
-        with st.spinner("Parsing GIS file..."):
-            gdf = parser.parse_file(temp_path)
-        
-        st.success(f"✅ Loaded {len(gdf)} features from {uploaded_file.name}")
-        
-        # Display summary
-        st.markdown("### 2. Design Summary")
-        summary = parser.get_layer_summary(gdf)
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Features", summary['total_features'])
-        with col2:
-            geom_types = ", ".join([f"{k}: {v}" for k, v in summary['geometry_types'].items()])
-            st.metric("Geometry Types", len(summary['geometry_types']))
-            st.caption(geom_types)
-        with col3:
-            st.metric("Attributes", len(summary['columns']) - 1)
-        
-        # Attribute mapping
-        st.markdown("### 3. Attribute Mapping")
-        
-        mapper = SchemaMapper()
-        auto_detected = mapper.auto_detect_fields(gdf)
-        
-        if auto_detected:
-            st.success(f"Auto-detected {len(auto_detected)} field mappings")
-            st.json(auto_detected)
-        else:
-            st.info("No fields auto-detected. Please map manually below.")
-        
-        # Manual mapping interface
-        with st.expander("🔧 Configure Field Mapping", expanded=not auto_detected):
-            available_cols = [col for col in gdf.columns if col not in ['geometry', 'geom_type']]
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                length_col = st.selectbox(
-                    "Length/Distance Field",
-                    [''] + available_cols,
-                    index=available_cols.index(auto_detected.get('length', '')) + 1 if auto_detected.get('length') in available_cols else 0
-                )
-                
-                fiber_count_col = st.selectbox(
-                    "Fiber Count Field (optional)",
-                    [''] + available_cols,
-                    index=available_cols.index(auto_detected.get('fiber_count', '')) + 1 if auto_detected.get('fiber_count') in available_cols else 0
-                )
-            
-            with col2:
-                install_method_col = st.selectbox(
-                    "Install Method Field (optional)",
-                    [''] + available_cols,
-                    index=available_cols.index(auto_detected.get('install_method', '')) + 1 if auto_detected.get('install_method') in available_cols else 0
-                )
-                
-                description_col = st.selectbox(
-                    "Description Field (optional)",
-                    [''] + available_cols,
-                    index=available_cols.index(auto_detected.get('description', '')) + 1 if auto_detected.get('description') in available_cols else 0
-                )
-        
-        # Build mapping dictionary
-        mapping = {}
-        if length_col:
-            mapping['length'] = length_col
-        if fiber_count_col:
-            mapping['fiber_count'] = fiber_count_col
-        if install_method_col:
-            mapping['install_method'] = install_method_col
-        if description_col:
-            mapping['description'] = description_col
-        
-        # Extract measurements
-        st.markdown("### 4. Extracted Measurements")
-        
-        measurements_df = mapper.extract_measurements(gdf)
-        
-        # Display preview
-        st.dataframe(
-            measurements_df.head(10),
-            use_container_width=True,
-            height=300
-        )
-        
-        if len(measurements_df) > 10:
-            st.caption(f"Showing 10 of {len(measurements_df)} features")
-        
-        # Generate quote button
-        st.markdown("### 5. Generate Quote")
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            if st.button("🚀 Generate Quote from GIS", type="primary", use_container_width=True):
-                with st.spinner("Generating quote from measurements..."):
-                    # Generate BOM using rules engine
-                    bom_df = QuoteRules.generate_bom_from_measurements(measurements_df, mapping)
-                    
-                    if len(bom_df) == 0:
-                        st.warning("No materials generated. Check your field mappings.")
-                    else:
-                        st.success(f"✅ Generated {len(bom_df)} line items")
-                        
-                        # Separate materials and labor
-                        materials_items = bom_df[bom_df['type'] == 'material'].to_dict('records')
-                        labor_items = bom_df[bom_df['type'] == 'labor'].to_dict('records')
-                        
-                        # Add to session state
-                        if 'quote_items' not in st.session_state:
-                            st.session_state.quote_items = []
-                        if 'labor_items' not in st.session_state:
-                            st.session_state.labor_items = []
-                        
-                        for item in materials_items:
-                            st.session_state.quote_items.append({
-                                'type': 'material',
-                                'name': item['name'],
-                                'part_number': None,
-                                'quantity': item['quantity'],
-                                'unit': item['unit'],
-                                'unit_cost': 0.0,
-                                'is_taxable': True
-                            })
-                        
-                        for item in labor_items:
-                            st.session_state.labor_items.append({
-                                'type': 'labor',
-                                'task': item['name'],
-                                'quantity': item['quantity'],
-                                'unit': item['unit'],
-                                'rate': 0.0,
-                                'is_taxable': False
-                            })
-                        
-                        st.info(
-                            f"📦 Added {len(materials_items)} materials and 👷 {len(labor_items)} labor items to Build Quote tab. "
-                            "Go to Build Quote to review and add pricing."
-                        )
-                        
-                        # Display preview
-                        st.markdown("**Generated Bill of Materials:**")
-                        st.dataframe(
-                            bom_df[['type', 'name', 'quantity', 'unit', 'category']],
-                            use_container_width=True
-                        )
-        
-        with col2:
-            st.metric("Total Features", len(measurements_df))
-            if 'length_ft' in measurements_df.columns:
-                total_length = measurements_df['length_ft'].sum()
-                st.metric("Total Length", f"{total_length:,.0f} FT")
-    
-    except Exception as e:
-        st.error(f"Error processing GIS file: {str(e)}")
-        st.exception(e)
-    
-    finally:
-        # Cleanup temp file
-        try:
-            os.unlink(temp_path)
-        except:
-            pass
 
 
 if __name__ == "__main__":

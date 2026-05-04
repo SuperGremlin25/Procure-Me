@@ -4,20 +4,20 @@ A Python-based Streamlit application that automates vendor quote processing with
 
 ## Features
 
-- **Excel File Processing**: Upload and parse vendor quote Excel files
-- **Automatic Calculations**: Apply margin (10%) and tax (8.25%) to vendor costs
-- **Clean Client Output**: Generate client-facing quotes without tax breakdown
-- **Configurable Rates**: Adjust tax and margin rates as needed
-- **Web Interface**: Easy-to-use Streamlit web app
+- 📊 **Excel File Processing**: Upload and parse vendor quote Excel files
+- 💰 **Automatic Calculations**: Apply margin (10%) and tax (8.25%) to vendor costs
+- 🧾 **Clean Client Output**: Generate client-facing quotes without tax breakdown
+- 🎛️ **Configurable Rates**: Adjust tax and margin rates as needed
+- 📱 **Web Interface**: Easy-to-use Streamlit web app
 
 ## How It Works
 
 1. Upload your vendor quote Excel file
-2. Select the sheet containing the data (e.g., "Vendor Quote Sheet")
+2. Select the sheet containing the data (e.g., "HAMMON OSP_UG_TAK")
 3. The app automatically:
    - Extracts vendor unit costs
-   - Adds 0% - 50% margin (sliding calculator) 
-   - Adds 0% - 10% tax (sliding calculator) 
+   - Adds 10% margin
+   - Adds 8.25% tax
    - Creates composite unit rates
 4. Download clean client-ready spreadsheets
 
@@ -45,7 +45,7 @@ streamlit run app.py
 ```bash
 streamlit run app.py
 ```
-Then open http://localhost in your browser.
+Then open http://localhost:8501 in your browser.
 
 ### Deployment to Streamlit Cloud
 
@@ -56,13 +56,13 @@ Then open http://localhost in your browser.
 
 ## Supported Formats
 
-The app supports standard vendor quote formats including:
+The app is optimized for the "HAMMON OSP_UG_TAK" format which includes:
 - Material Description
 - Part Number
 - BOM Quantity
 - BOM Unit
 - Quote Quantity
-- Vendor Unit Cost
+- Tak Cost Per Unit
 
 It also supports generic Excel formats with automatic column detection.
 
@@ -71,6 +71,9 @@ It also supports generic Excel formats with automatic column detection.
 ```
 Composite Unit Rate = Vendor Cost × (1 + Margin) × (1 + Tax)
 
+Default values:
+- Margin: 10%
+- Tax: 8.25%
 ```
 
 ## Project Structure

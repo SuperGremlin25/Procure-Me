@@ -19,52 +19,7 @@ class ExcelParser:
     
     def __init__(self):
         """Initialize the ExcelParser."""
-        self.supported_formats = ['Vendor Quote Sheet']
-    
-    def detect_duplicate_columns(self, df: pd.DataFrame) -> Dict[str, List[int]]:
-        """
-        Detect duplicate column names in DataFrame.
-        
-        Args:
-            df: DataFrame to check
-            
-        Returns:
-            Dictionary mapping duplicate column names to list of column indices
-        """
-        cols = df.columns.tolist()
-        duplicates = {}
-        
-        for col in set(cols):
-            indices = [i for i, c in enumerate(cols) if c == col]
-            if len(indices) > 1:
-                duplicates[col] = indices
-        
-        return duplicates
-    
-    def rename_duplicate_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Rename duplicate columns by appending .1, .2, etc. suffixes.
-        
-        Args:
-            df: DataFrame with potential duplicate columns
-            
-        Returns:
-            DataFrame with unique column names
-        """
-        cols = df.columns.tolist()
-        new_cols = []
-        seen = {}
-        
-        for col in cols:
-            if col in seen:
-                seen[col] += 1
-                new_cols.append(f"{col}.{seen[col]}")
-            else:
-                seen[col] = 0
-                new_cols.append(col)
-        
-        df.columns = new_cols
-        return df
+        self.supported_formats = ['HAMMON OSP_UG_TAK']
     
     def detect_format(self, file_path: str) -> Tuple[str, List[str]]:
         """
@@ -88,19 +43,19 @@ class ExcelParser:
         # Return generic format if no specific format detected
         return 'Generic', sheet_names
     
-    def parse_vendor_format(self, file_path: str, sheet_name: str = 'Vendor Quote Sheet') -> pd.DataFrame:
+    def parse_hammon_format(self, file_path: str, sheet_name: str = 'HAMMON OSP_UG_TAK') -> pd.DataFrame:
         """
-        Parse the vendor quote spreadsheet format.
+        Parse the HAMMON OSP_UG_TAK spreadsheet format.
         
         Expected columns:
-        - Material Description
-        - Part Number
+        - Underground (Material Description)
+        - part number
         - BOM Qty
-        - BOM Unit
+        - BOM UNIT
         - Quote Unit
         - Quote Qty
-        - Vendor Unit Cost
-        - Vendor Total
+        - Tak Cost Per Unit
+        - Tak Total
         - ... (calculations)
         
         Args:
@@ -128,7 +83,7 @@ class ExcelParser:
         df = df.reset_index(drop=True)
         
         # Clean numeric columns
-        numeric_columns = ['BOM Qty', 'Quote Qty', 'Vendor Unit Cost', 'Vendor Total']
+        numeric_columns = ['BOM Qty', 'Quote Qty', 'Tak Cost Per Unit', 'Tak Total']
         for col in numeric_columns:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -178,7 +133,7 @@ class ExcelParser:
             
             # Unit cost column
             elif any(term in col_lower for term in ['cost', 'price', 'unit']):
-                column_mapping[col] = 'Vendor Unit Cost'
+                column_mapping[col] = 'Tak Cost Per Unit'
         
         # Rename columns based on mapping
         df = df.rename(columns=column_mapping)
@@ -211,8 +166,8 @@ class ExcelParser:
                     sheet_name = sheet_names[0] if sheet_names else 'Sheet1'
             
             # Parse based on format
-            if format_name == 'Vendor Quote Sheet' and sheet_name == 'Vendor Quote Sheet':
-                return self.parse_vendor_format(file_path, sheet_name)
+            if format_name == 'HAMMON OSP_UG_TAK' and sheet_name == 'HAMMON OSP_UG_TAK':
+                return self.parse_hammon_format(file_path, sheet_name)
             else:
                 return self.parse_generic_format(file_path, sheet_name)
                 
@@ -227,7 +182,7 @@ class ExcelParser:
             file_path: Path to the Excel file
             
         Returns:
-            Dictionary with sheet information including duplicate detection
+            Dictionary with sheet information
         """
         try:
             xl_file = pd.ExcelFile(file_path)
@@ -237,14 +192,10 @@ class ExcelParser:
                 # Read first few rows to get column info
                 df_sample = pd.read_excel(file_path, sheet_name=sheet_name, nrows=5)
                 
-                # Detect duplicate columns
-                duplicates = self.detect_duplicate_columns(df_sample)
-                
                 sheet_info[sheet_name] = {
                     'columns': df_sample.columns.tolist(),
                     'row_count': len(pd.read_excel(file_path, sheet_name=sheet_name)),
-                    'has_data': not df_sample.empty,
-                    'duplicates': duplicates
+                    'has_data': not df_sample.empty
                 }
             
             return sheet_info

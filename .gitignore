@@ -231,15 +231,3 @@ cache/
 # Local scripts
 run_local.sh
 deploy_local.py
-
-# Windsurf IDE planning files - session-specific, not for repo
-.windsurf/
-
-# Documentation files except README (session/dev notes)
-DEPLOYMENT.md
-SECURITY.md
-SECURITY_CHECKLIST.md
-
-# Only README.md should be in git (exclude all other .md files)
-*.md
-!README.md
