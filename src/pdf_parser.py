@@ -107,7 +107,7 @@ class PDFParser:
             try:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except Exception:
+            except OSError:
                 pass
     
     def _parse_with_pdfplumber(self, file_path: str) -> pd.DataFrame:
@@ -390,7 +390,7 @@ class PDFParser:
                 try:
                     if os.path.exists(temp_path):
                         os.unlink(temp_path)
-                except Exception:
+                except OSError:
                     pass
         
         return info
