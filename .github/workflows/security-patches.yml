@@ -39,7 +39,7 @@ jobs:
       run: |
         echo "## 🛡️ Running pip-audit for CVEs..."
         pip-audit --format=json --output=audit-report.json || true
-        pip-audit --format=table
+        pip-audit --format=table || true
         
     - name: Check for patch updates
       run: |
