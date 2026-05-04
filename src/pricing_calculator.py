@@ -16,144 +16,6 @@ import os
 import tempfile
 from typing import Optional, Dict, Any, Tuple, List
 from io import BytesIO
-from enum import Enum
-
-
-class CalculationMethod(Enum):
-    """How margin and tax are calculated"""
-    MARGIN_THEN_TAX = "margin_then_tax"           # Current default: Cost × (1+Margin) × (1+Tax)
-    TAX_SEPARATE = "tax_separate"                  # Government standard: (Cost × (1+Margin)) + (Cost × Tax)
-    ADDITIVE = "additive"                          # Simplest: Cost × (1 + Margin + Tax)
-    COST_PLUS_FIXED_FEE = "cost_plus_fee"         # Transparent: Cost + Tax + Fixed Fee
-
-
-class InvoiceFormat(Enum):
-    """How the invoice is presented"""
-    DETAILED_AUDIT = "detailed_audit"              # Current format with full audit trail
-    FAR_COMPLIANT = "far_compliant"                # Government contract format
-    GRANT_COMPLIANCE = "grant_compliance"          # ARPA/BEAD specific
-    CLEAN_CLIENT = "clean_client"                  # No breakdown shown
-    COMBO = "combo"                                # Both audit + clean
-
-
-class TradeType(Enum):
-    """Construction trade for preset suggestions"""
-    TELECOM_FIBER = "telecom"
-    GENERAL_CONTRACTOR = "general_contractor"
-    CIVIL_INFRASTRUCTURE = "civil"
-    ELECTRICAL = "electrical"
-    PLUMBING_HVAC = "plumbing_hvac"
-    CONCRETE = "concrete"
-    HOME_BUILDING = "home_building"
-    HEAVY_EQUIPMENT = "equipment"
-    GENERAL_CONSTRUCTION = "general"
-
-
-class ComplianceMode(Enum):
-    """Quick preset configurations"""
-    COMMERCIAL = "commercial"
-    GOVERNMENT_GRANT = "grant"
-    GOVERNMENT_CONTRACT = "contract"
-    CUSTOM = "custom"
-
-
-# Trade-specific preset configurations
-TRADE_PRESETS = {
-    TradeType.TELECOM_FIBER: {
-        'suggested_margin_min': 0.25,
-        'suggested_margin_max': 0.30,
-        'default_margin': 0.25,
-        'government_margin': 0.15,
-        'common_uoms': ['LF', 'EA', 'HR'],
-        'description': 'Telecom / Fiber Optic'
-    },
-    TradeType.GENERAL_CONTRACTOR: {
-        'suggested_margin_min': 0.30,
-        'suggested_margin_max': 0.35,
-        'default_margin': 0.33,
-        'government_margin': 0.15,
-        'common_uoms': ['LS', 'EA', 'SF'],
-        'description': 'General Contractor / Commercial'
-    },
-    TradeType.CIVIL_INFRASTRUCTURE: {
-        'suggested_margin_min': 0.20,
-        'suggested_margin_max': 0.25,
-        'default_margin': 0.20,
-        'government_margin': 0.15,
-        'common_uoms': ['CY', 'SY', 'TON'],
-        'description': 'Civil / Infrastructure'
-    },
-    TradeType.ELECTRICAL: {
-        'suggested_margin_min': 0.30,
-        'suggested_margin_max': 0.35,
-        'default_margin': 0.30,
-        'government_margin': 0.18,
-        'common_uoms': ['LF', 'EA', 'HR'],
-        'description': 'Electrical'
-    },
-    TradeType.PLUMBING_HVAC: {
-        'suggested_margin_min': 0.35,
-        'suggested_margin_max': 0.40,
-        'default_margin': 0.35,
-        'government_margin': 0.20,
-        'common_uoms': ['LF', 'EA', 'HR'],
-        'description': 'Plumbing / HVAC'
-    },
-    TradeType.CONCRETE: {
-        'suggested_margin_min': 0.20,
-        'suggested_margin_max': 0.25,
-        'default_margin': 0.20,
-        'government_margin': 0.15,
-        'common_uoms': ['CY', 'SF', 'LF'],
-        'description': 'Concrete'
-    },
-    TradeType.HOME_BUILDING: {
-        'suggested_margin_min': 0.25,
-        'suggested_margin_max': 0.35,
-        'default_margin': 0.30,
-        'government_margin': 0.18,
-        'common_uoms': ['SF', 'LF', 'EA'],
-        'description': 'Home Building / Residential'
-    },
-    TradeType.HEAVY_EQUIPMENT: {
-        'suggested_margin_min': 0.20,
-        'suggested_margin_max': 0.30,
-        'default_margin': 0.25,
-        'government_margin': 0.15,
-        'common_uoms': ['HR', 'DAY', 'WK'],
-        'description': 'Heavy Equipment / Rental'
-    },
-    TradeType.GENERAL_CONSTRUCTION: {
-        'suggested_margin_min': 0.25,
-        'suggested_margin_max': 0.30,
-        'default_margin': 0.25,
-        'government_margin': 0.15,
-        'common_uoms': ['LS', 'EA', 'SF'],
-        'description': 'General Construction'
-    }
-}
-
-
-def margin_to_markup(margin_pct: float) -> float:
-    """Convert gross margin % to markup %.
-    
-    Formula: Markup = Margin / (1 - Margin)
-    
-    Example: 33% margin → 49.3% markup
-    """
-    if margin_pct >= 1.0:
-        raise ValueError("Margin cannot be >= 100%")
-    return margin_pct / (1 - margin_pct)
-
-
-def markup_to_margin(markup_pct: float) -> float:
-    """Convert markup % to gross margin %.
-    
-    Formula: Margin = Markup / (1 + Markup)
-    
-    Example: 49.3% markup → 33% margin
-    """
-    return markup_pct / (1 + markup_pct)
 
 
 class PricingProcessor:
@@ -164,177 +26,33 @@ class PricingProcessor:
         tax_rate (float): Tax rate as decimal (default: 0.0825 for 8.25%)
         margin_rate (float): Margin/markup rate as decimal (default: 0.10 for 10%)
         shipping_cost (float): Pass-through shipping cost (default: 0.00)
-        calculation_method (CalculationMethod): How margin and tax are calculated
-        invoice_format (InvoiceFormat): How the invoice is presented
-        trade_type (TradeType): Construction trade for preset suggestions
-        fixed_fee (float): Fixed fee for cost-plus contracts (default: 0.0)
-        is_gross_margin (bool): If True, margin_rate is gross margin %; if False, it's markup %
     """
     
-    def __init__(self, 
-                 tax_rate: float = 0.0825, 
-                 margin_rate: float = 0.10,
-                 shipping_cost: float = 0.0,
-                 calculation_method: CalculationMethod = CalculationMethod.MARGIN_THEN_TAX,
-                 invoice_format: InvoiceFormat = InvoiceFormat.DETAILED_AUDIT,
-                 trade_type: TradeType = TradeType.TELECOM_FIBER,
-                 fixed_fee: float = 0.0,
-                 is_gross_margin: bool = False):
+    def __init__(self, tax_rate: float = 0.0825, margin_rate: float = 0.10,
+                 shipping_cost: float = 0.0):
         self.tax_rate = tax_rate
-        self.is_gross_margin = is_gross_margin
-        
-        # Convert gross margin to markup if needed
-        if is_gross_margin:
-            self.gross_margin_rate = margin_rate
-            self.margin_rate = margin_to_markup(margin_rate)
-        else:
-            self.margin_rate = margin_rate
-            self.gross_margin_rate = markup_to_margin(margin_rate)
-        
+        self.margin_rate = margin_rate
         self.shipping_cost = shipping_cost
-        self.calculation_method = calculation_method
-        self.invoice_format = invoice_format
-        self.trade_type = trade_type
-        self.fixed_fee = fixed_fee
     
-    def calculate_composite_rate(self, unit_cost: float) -> dict:
+    def calculate_composite_rate(self, unit_cost: float) -> float:
         """
-        Calculate pricing using selected method and return detailed breakdown.
+        Calculate the composite unit rate: unit_cost × (1 + margin) × (1 + tax).
+        All-in price per unit — margin first, then tax baked in.
         
-        Returns dict with:
-            - base_cost: Original unit cost
-            - margin_dollars: Dollar amount of margin
-            - tax_dollars: Dollar amount of tax
-            - composite_rate: Final unit rate
-            - method: Calculation method name
-            - formula_text: Human-readable formula
-            - breakdown_text: Step-by-step calculation
+        Returns value with 6 decimal precision to prevent rounding errors
+        on high-quantity items (e.g., 44,000 ft @ $0.829917/ft).
         """
         if pd.isna(unit_cost) or unit_cost == 0:
-            return self._empty_result()
-        
-        # Route to appropriate calculation method
-        if self.calculation_method == CalculationMethod.MARGIN_THEN_TAX:
-            return self._calc_margin_then_tax(unit_cost)
-        elif self.calculation_method == CalculationMethod.TAX_SEPARATE:
-            return self._calc_tax_separate(unit_cost)
-        elif self.calculation_method == CalculationMethod.ADDITIVE:
-            return self._calc_additive(unit_cost)
-        elif self.calculation_method == CalculationMethod.COST_PLUS_FIXED_FEE:
-            return self._calc_cost_plus(unit_cost)
-        else:
-            # Default to current behavior
-            return self._calc_margin_then_tax(unit_cost)
-    
-    def _empty_result(self) -> dict:
-        """Return empty result for zero/NA costs."""
-        return {
-            'base_cost': 0.0,
-            'margin_dollars': 0.0,
-            'tax_dollars': 0.0,
-            'composite_rate': 0.0,
-            'method': self.calculation_method.value,
-            'formula_text': 'N/A',
-            'breakdown_text': 'No cost'
-        }
-    
-    def _calc_margin_then_tax(self, cost: float) -> dict:
-        """Current default: Cost × (1+Margin) × (1+Tax)"""
-        after_margin = cost * (1 + self.margin_rate)
-        margin_dollars = cost * self.margin_rate
-        tax_dollars = after_margin * self.tax_rate
-        composite = after_margin + tax_dollars
-        
-        return {
-            'base_cost': cost,
-            'margin_dollars': round(margin_dollars, 2),
-            'tax_dollars': round(tax_dollars, 2),
-            'composite_rate': round(composite, 2),
-            'method': 'Margin-Then-Tax',
-            'formula_text': f'${cost:.2f} × (1+{self.margin_rate:.2%}) × (1+{self.tax_rate:.2%})',
-            'breakdown_text': (
-                f"Cost: ${cost:.2f} → "
-                f"After Margin: ${after_margin:.2f} → "
-                f"Tax on ${after_margin:.2f}: ${tax_dollars:.2f} → "
-                f"Total: ${composite:.2f}"
-            )
-        }
-    
-    def _calc_tax_separate(self, cost: float) -> dict:
-        """Government standard: (Cost × (1+Margin)) + (Cost × Tax)"""
-        margin_dollars = cost * self.margin_rate
-        tax_dollars = cost * self.tax_rate  # Tax on ORIGINAL cost
-        composite = cost + margin_dollars + tax_dollars
-        
-        return {
-            'base_cost': cost,
-            'margin_dollars': round(margin_dollars, 2),
-            'tax_dollars': round(tax_dollars, 2),
-            'composite_rate': round(composite, 2),
-            'method': 'Tax-Separate (Government Standard)',
-            'formula_text': f'(${cost:.2f} × (1+{self.margin_rate:.2%})) + (${cost:.2f} × {self.tax_rate:.2%})',
-            'breakdown_text': (
-                f"Cost: ${cost:.2f} → "
-                f"Margin: ${margin_dollars:.2f} → "
-                f"Tax on original cost: ${tax_dollars:.2f} → "
-                f"Total: ${composite:.2f}"
-            )
-        }
-    
-    def _calc_additive(self, cost: float) -> dict:
-        """Simplest: Cost × (1 + Margin% + Tax%)"""
-        margin_dollars = cost * self.margin_rate
-        tax_dollars = cost * self.tax_rate
-        composite = cost * (1 + self.margin_rate + self.tax_rate)
-        
-        return {
-            'base_cost': cost,
-            'margin_dollars': round(margin_dollars, 2),
-            'tax_dollars': round(tax_dollars, 2),
-            'composite_rate': round(composite, 2),
-            'method': 'Additive',
-            'formula_text': f'${cost:.2f} × (1 + {self.margin_rate:.2%} + {self.tax_rate:.2%})',
-            'breakdown_text': (
-                f"Cost: ${cost:.2f} × "
-                f"(1 + {self.margin_rate*100:.1f}% + {self.tax_rate*100:.2f}%) = "
-                f"${composite:.2f}"
-            )
-        }
-    
-    def _calc_cost_plus(self, cost: float) -> dict:
-        """Cost-Plus: Cost + Tax + Fixed Fee (per item or project)"""
-        tax_dollars = cost * self.tax_rate
-        composite = cost + tax_dollars
-        # Fixed fee usually added at project level, not per item
-        
-        return {
-            'base_cost': cost,
-            'margin_dollars': 0,  # Fee shown separately
-            'tax_dollars': round(tax_dollars, 2),
-            'composite_rate': round(composite, 2),
-            'method': 'Cost-Plus-Fixed-Fee',
-            'formula_text': f'${cost:.2f} + ${tax_dollars:.2f} + Fixed Fee',
-            'breakdown_text': (
-                f"Cost: ${cost:.2f} → "
-                f"Tax: ${tax_dollars:.2f} → "
-                f"Subtotal: ${composite:.2f} (+ ${self.fixed_fee:.2f} project fee)"
-            )
-        }
-    
-    def get_composite_rate_value(self, unit_cost: float) -> float:
-        """Legacy method: returns just the composite rate as float for backward compatibility."""
-        result = self.calculate_composite_rate(unit_cost)
-        return result['composite_rate']
+            return 0.0
+        composite_rate = unit_cost * (1 + self.margin_rate) * (1 + self.tax_rate)
+        return round(composite_rate, 6)
     
     # ------------------------------------------------------------------
     # Data cleaning
     # ------------------------------------------------------------------
     def clean_vendor_quote(self, df: pd.DataFrame,
                            desc_col: str, qty_col: str,
-                           cost_col: str,
-                           part_col: str = None,
-                           uom_col: str = None,
-                           total_col: str = None) -> Tuple[pd.DataFrame, float, float]:
+                           cost_col: str) -> Tuple[pd.DataFrame, float, float]:
         """
         Clean a raw parsed vendor quote DataFrame.
         
@@ -344,8 +62,6 @@ class PricingProcessor:
         Phase 2 — Extract sales tax and freight dollar amounts.
         Phase 3 — Strip junk: vendor headers, repeated column-header rows,
                    empty rows, subtotal markers.
-        
-        Optional columns (part_col, uom_col, total_col) are stored for downstream use.
         
         Returns:
             (cleaned_df, sales_tax_dollars, freight_dollars)
@@ -392,11 +108,11 @@ class PricingProcessor:
             
             # --- Extract freight ---
             if freight_pattern.search(row_text):
-                # Look for a real dollar amount > 1; skip small ints (qty=1)
+                # Look for a real dollar amount > 0; ignore qty=1 / cost=0 pattern
                 row_freight = 0.0
                 for v in row.values:
                     parsed = _parse_currency(v)
-                    if parsed and parsed > 1.0 and parsed > row_freight:
+                    if parsed and parsed > row_freight:
                         row_freight = parsed
                 if row_freight > freight:
                     freight = row_freight
@@ -425,14 +141,6 @@ class PricingProcessor:
         # Ensure numeric columns (already stripped commas above, but be safe)
         cleaned_df[qty_col] = pd.to_numeric(cleaned_df[qty_col], errors='coerce').fillna(0)
         cleaned_df[cost_col] = pd.to_numeric(cleaned_df[cost_col], errors='coerce').fillna(0)
-        
-        # Store column mappings in attrs for downstream use
-        cleaned_df.attrs['desc_col'] = desc_col
-        cleaned_df.attrs['qty_col'] = qty_col
-        cleaned_df.attrs['cost_col'] = cost_col
-        cleaned_df.attrs['part_col'] = part_col
-        cleaned_df.attrs['uom_col'] = uom_col
-        cleaned_df.attrs['total_col'] = total_col
         
         return cleaned_df, sales_tax, freight
     
@@ -464,11 +172,6 @@ class PricingProcessor:
         # Short lines (1-3 words, no digits or hyphens) are likely vendor
         # header labels like "Gotebo Resound", "A.B.", "Rep", etc.
         short_header = re.compile(r'^[A-Za-z\s.]+$')
-        # Rows that Phase 2 needs to see (tax, freight, subtotal) — pass through
-        passthrough = re.compile(
-            r'sales\s*tax|^tax$|freight|shipping|subtotal|sub\s*total|grand\s*total',
-            re.IGNORECASE
-        )
         
         merged_rows: List[pd.Series] = []
         desc_buffer: List[str] = []
@@ -477,12 +180,6 @@ class PricingProcessor:
             qty_val = pd.to_numeric(row.get(qty_col), errors='coerce')
             cost_val = pd.to_numeric(row.get(cost_col), errors='coerce')
             desc_val = str(row.get(desc_col, '')).strip()
-            
-            # Check if any cell in the row contains tax/freight/subtotal keywords
-            row_text = ' '.join(str(v) for v in row.values if pd.notna(v))
-            if passthrough.search(row_text):
-                merged_rows.append(row.copy())
-                continue
             
             has_qty = pd.notna(qty_val) and qty_val != 0
             has_cost = pd.notna(cost_val) and cost_val != 0
@@ -527,48 +224,33 @@ class PricingProcessor:
     # ------------------------------------------------------------------
     # Quote processing
     # ------------------------------------------------------------------
-    def process_quote(self, df: pd.DataFrame) -> pd.DataFrame:
+    def process_quote(self, df: pd.DataFrame, 
+                      desc_col: str = None, qty_col: str = None, 
+                      cost_col: str = None) -> pd.DataFrame:
         """
         Process a cleaned vendor quote DataFrame and add calculated columns.
         
-        Reads column mappings from df.attrs (set by clean_vendor_quote).
-        
         Adds:
-          - Composite Unit Rate = calculated based on selected method
+          - Composite Unit Rate = unit_cost × (1 + margin) × (1 + tax)
           - Total Price = Composite Unit Rate × Quantity
-          - Calculation details (method, formula) stored in additional columns
         """
         processed_df = df.copy()
         
-        # Retrieve column mappings from attrs
-        desc_col = df.attrs.get('desc_col')
-        qty_col = df.attrs.get('qty_col')
-        cost_col = df.attrs.get('cost_col')
-        part_col = df.attrs.get('part_col')
-        uom_col = df.attrs.get('uom_col')
-        total_col = df.attrs.get('total_col')
-        
-        # Ensure numeric columns
         processed_df[cost_col] = pd.to_numeric(processed_df[cost_col], errors='coerce').fillna(0)
         processed_df[qty_col] = pd.to_numeric(processed_df[qty_col], errors='coerce').fillna(0)
         
-        # Calculate composite rate using selected method
-        # calculate_composite_rate now returns a dict, extract the composite_rate value
         processed_df['Composite Unit Rate'] = processed_df[cost_col].apply(
-            lambda cost: self.calculate_composite_rate(cost)['composite_rate']
+            self.calculate_composite_rate
         )
         
         processed_df['Total Price'] = (
             processed_df[qty_col] * processed_df['Composite Unit Rate']
         ).round(2)
         
-        # Store calculation details for audit trail
-        calc_details = processed_df[cost_col].apply(self.calculate_composite_rate)
-        processed_df['_calc_method'] = calc_details.apply(lambda x: x['method'])
-        processed_df['_formula_text'] = calc_details.apply(lambda x: x['formula_text'])
-        
-        # Preserve all attrs for downstream methods
-        processed_df.attrs = df.attrs.copy()
+        # Store mapped column names for downstream methods
+        processed_df.attrs['desc_col'] = desc_col
+        processed_df.attrs['qty_col'] = qty_col
+        processed_df.attrs['cost_col'] = cost_col
         
         return processed_df
     
@@ -579,22 +261,24 @@ class PricingProcessor:
                                        tax_rate: float, 
                                        margin_rate: float,
                                        output_path=None,
+                                       desc_col: str = None,
+                                       qty_col: str = None,
+                                       cost_col: str = None,
                                        shipping_cost: float = 0.0) -> pd.DataFrame:
         """
-        Full audit trail with dollar-based breakdown (not percentages).
-        
-        Columns: Part # | Description | UOM | Qty | Vendor Cost | Margin $ | 
-                 After Margin | Tax $ | Composite Rate | Line Total | Vendor Total
-        
-        Example: $10 → +$1 margin → $11 → +$0.91 tax → $11.91 composite
+        Full audit trail: Vendor Cost → +Margin → After Margin → +Tax →
+        Composite Unit Rate → Line Total → Formula.
+        Shipping added as a separate line at the bottom.
         """
-        # Retrieve column mappings from attrs
-        desc_col = df.attrs.get('desc_col')
-        qty_col = df.attrs.get('qty_col')
-        cost_col = df.attrs.get('cost_col')
-        part_col = df.attrs.get('part_col')
-        uom_col = df.attrs.get('uom_col')
-        total_col = df.attrs.get('total_col')
+        if desc_col is None:
+            desc_col = df.attrs.get('desc_col')
+        if qty_col is None:
+            qty_col = df.attrs.get('qty_col')
+        if cost_col is None:
+            cost_col = df.attrs.get('cost_col')
+        
+        margin_col = f'+Margin ({margin_rate*100:.1f}%)'
+        tax_col = f'+Tax ({tax_rate*100:.2f}%)'
         
         audit_data = []
         for _, row in df.iterrows():
@@ -606,50 +290,24 @@ class PricingProcessor:
             quantity = float(pd.to_numeric(row[qty_col], errors='coerce') or 0)
             unit_cost = float(pd.to_numeric(row.get(cost_col, 0), errors='coerce') or 0) if cost_col else 0.0
             
-            # Calculate using selected method
-            calc_result = self.calculate_composite_rate(unit_cost)
-            margin_dollars = calc_result['margin_dollars']
-            tax_dollars = calc_result['tax_dollars']
-            composite_rate = calc_result['composite_rate']
-            
-            # For audit trail, also calculate after_margin for display
-            after_margin = round(unit_cost + margin_dollars, 2)
+            margin_per_unit = round(unit_cost * margin_rate, 4)
+            after_margin = round(unit_cost + margin_per_unit, 4)
+            tax_per_unit = round(after_margin * tax_rate, 4)
+            composite_rate = round(after_margin + tax_per_unit, 4)
             line_total = round(composite_rate * quantity, 2)
+            row_num = len(audit_data) + 2  # Excel row (1-indexed, +1 for header)
             
-            # Build row with optional columns
-            audit_row = {}
-            
-            if part_col and pd.notna(row.get(part_col)):
-                audit_row['Part Number'] = row[part_col]
-            
-            audit_row['Description'] = row[desc_col]
-            
-            if uom_col and pd.notna(row.get(uom_col)):
-                audit_row['UOM'] = row[uom_col]
-            
-            audit_row['Qty'] = quantity
-            audit_row['Vendor Unit Cost'] = unit_cost
-            
-            # Vendor Total Cost = Qty × Vendor Unit Cost
-            vendor_total_cost = round(quantity * unit_cost, 2)
-            audit_row['Vendor Total Cost'] = vendor_total_cost
-            
-            audit_row['Margin $'] = margin_dollars
-            audit_row['After Margin'] = after_margin
-            audit_row['Tax $'] = tax_dollars
-            audit_row['Composite Unit Rate'] = composite_rate
-            audit_row['Line Total'] = line_total
-            
-            if total_col and pd.notna(row.get(total_col)):
-                vendor_total = pd.to_numeric(row[total_col], errors='coerce')
-                if pd.notna(vendor_total):
-                    audit_row['Vendor Total (from PDF)'] = float(vendor_total)
-            
-            # Add calculation method and formula
-            audit_row['Calculation Method'] = calc_result['method']
-            audit_row['Formula'] = calc_result['breakdown_text'] + f" | Total: ${composite_rate:.2f} × {quantity} = ${line_total:.2f}"
-            
-            audit_data.append(audit_row)
+            audit_data.append({
+                'Description': row[desc_col],
+                'Qty': quantity,
+                'Vendor Unit Cost': unit_cost,
+                margin_col: margin_per_unit,
+                'After Margin': after_margin,
+                tax_col: tax_per_unit,
+                'Composite Unit Rate': composite_rate,
+                'Line Total': line_total,
+                'Formula': f'=C{row_num}*(1+{margin_rate})*(1+{tax_rate})'
+            })
         
         audit_df = pd.DataFrame(audit_data)
         
@@ -662,32 +320,36 @@ class PricingProcessor:
             ship_row['Description'] = 'Shipping / Freight (Pass-Through)'
             ship_row['Qty'] = 1
             ship_row['Vendor Unit Cost'] = shipping_cost
-            ship_row['Vendor Total Cost'] = shipping_cost
-            ship_row['Margin $'] = 0
+            ship_row[margin_col] = 0
             ship_row['After Margin'] = shipping_cost
-            ship_row['Tax $'] = 0
+            ship_row[tax_col] = 0
             ship_row['Composite Unit Rate'] = shipping_cost
             ship_row['Line Total'] = shipping_cost
             ship_row['Formula'] = 'Pass-through (no markup)'
             audit_df = pd.concat([audit_df, pd.DataFrame([ship_row])], ignore_index=True)
         
+        # Totals row
+        totals = {col: '' for col in audit_df.columns}
+        totals['Description'] = 'TOTALS'
+        for c in ['Qty', 'Vendor Unit Cost', margin_col, 'After Margin', tax_col,
+                   'Composite Unit Rate', 'Line Total']:
+            numeric_vals = pd.to_numeric(audit_df[c], errors='coerce')
+            if c in ['Vendor Unit Cost', 'Composite Unit Rate']:
+                totals[c] = ''
+            else:
+                totals[c] = round(numeric_vals.sum(), 2)
+        totals['Line Total'] = round(pd.to_numeric(audit_df['Line Total'], errors='coerce').sum(), 2)
+        totals['Formula'] = ''
+        audit_df = pd.concat([audit_df, pd.DataFrame([totals])], ignore_index=True)
+        
         # Write to Excel if output_path provided
         if output_path:
-            self._write_audit_excel(audit_df, output_path)
+            self._write_audit_excel(audit_df, output_path, margin_col, tax_col)
         
         return audit_df
     
-    @staticmethod
-    def _excel_col_letter(col_num):
-        """Convert column number to Excel column letter (0 -> A, 1 -> B, etc.)."""
-        result = ""
-        while col_num >= 0:
-            result = chr(col_num % 26 + 65) + result
-            col_num = col_num // 26 - 1
-        return result
-    
-    def _write_audit_excel(self, audit_df, output_path):
-        """Write audit DataFrame with Excel formulas in calculated cells."""
+    def _write_audit_excel(self, audit_df, output_path, margin_col, tax_col):
+        """Write the audit DataFrame to a formatted Excel file or BytesIO buffer."""
         is_buffer = hasattr(output_path, 'write')
         
         if is_buffer:
@@ -707,100 +369,38 @@ class PricingProcessor:
                 'fg_color': '#D7E4BC', 'border': 1
             })
             money_fmt = workbook.add_format({'num_format': '$#,##0.00'})
+            formula_fmt = workbook.add_format({'font_color': 'blue', 'italic': True})
             totals_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#E2EFDA', 'border': 1,
-                'num_format': '$#,##0.00'
+                'bold': True, 'bg_color': '#E2EFDA', 'border': 1
             })
             
-            money_cols = ['Vendor Unit Cost', 'Vendor Total Cost', 'Margin $', 'After Margin',
-                          'Tax $', 'Composite Unit Rate', 'Line Total', 'Vendor Total (from PDF)']
+            money_cols = ['Vendor Unit Cost', margin_col, 'After Margin',
+                          tax_col, 'Composite Unit Rate', 'Line Total']
             
-            # Map column names to Excel column letters
-            col_map = {}
             for col_num, column in enumerate(audit_df.columns):
-                col_letter = self._excel_col_letter(col_num)
-                col_map[column] = col_letter
-                
                 worksheet.write(0, col_num, column, header_fmt)
                 if column == 'Description':
                     worksheet.set_column(col_num, col_num, 45)
-                elif column == 'Part Number':
-                    worksheet.set_column(col_num, col_num, 18)
                 elif column == 'Formula':
-                    worksheet.set_column(col_num, col_num, 80)  # Wide column for formula text
+                    worksheet.set_column(col_num, col_num, 30)
                 elif column in money_cols:
-                    worksheet.set_column(col_num, col_num, 14, money_fmt)
-                elif column == 'UOM':
-                    worksheet.set_column(col_num, col_num, 8)
+                    worksheet.set_column(col_num, col_num, 16, money_fmt)
                 else:
-                    worksheet.set_column(col_num, col_num, 10)
+                    worksheet.set_column(col_num, col_num, 12)
             
-            # Write formulas for calculated columns (rows 2 to n-1, skipping totals row)
-            num_data_rows = len(audit_df) - 1  # Exclude totals row
+            # Formula column formatting
+            if 'Formula' in audit_df.columns:
+                fc = audit_df.columns.get_loc('Formula')
+                for r in range(1, len(audit_df)):
+                    val = audit_df.iloc[r]['Formula']
+                    if val:
+                        worksheet.write(r, fc, val, formula_fmt)
             
-            for row_idx in range(num_data_rows):
-                excel_row = row_idx + 2  # Excel is 1-indexed, +1 for header
-                
-                # Get column letters
-                vendor_cost_col = col_map.get('Vendor Unit Cost')
-                vendor_total_cost_col = col_map.get('Vendor Total Cost')
-                margin_col = col_map.get('Margin $')
-                after_margin_col = col_map.get('After Margin')
-                tax_col = col_map.get('Tax $')
-                composite_col = col_map.get('Composite Unit Rate')
-                qty_col = col_map.get('Qty')
-                line_total_col = col_map.get('Line Total')
-                
-                # Vendor Total Cost = Qty * Vendor Unit Cost
-                if vendor_total_cost_col and qty_col and vendor_cost_col:
-                    formula = f'={qty_col}{excel_row}*{vendor_cost_col}{excel_row}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('Vendor Total Cost'), 
-                                          formula, money_fmt)
-                
-                # Margin $ = Vendor Unit Cost * margin_rate
-                if margin_col and vendor_cost_col:
-                    margin_rate = self.margin_rate
-                    formula = f'={vendor_cost_col}{excel_row}*{margin_rate}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('Margin $'), 
-                                          formula, money_fmt)
-                
-                # After Margin = Vendor Unit Cost + Margin $
-                if after_margin_col and vendor_cost_col and margin_col:
-                    formula = f'={vendor_cost_col}{excel_row}+{margin_col}{excel_row}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('After Margin'), 
-                                          formula, money_fmt)
-                
-                # Tax $ = After Margin * tax_rate
-                if tax_col and after_margin_col:
-                    tax_rate = self.tax_rate
-                    formula = f'={after_margin_col}{excel_row}*{tax_rate}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('Tax $'), 
-                                          formula, money_fmt)
-                
-                # Composite Unit Rate = After Margin + Tax $
-                if composite_col and after_margin_col and tax_col:
-                    formula = f'={after_margin_col}{excel_row}+{tax_col}{excel_row}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('Composite Unit Rate'), 
-                                          formula, money_fmt)
-                
-                # Line Total = Composite Unit Rate * Qty
-                if line_total_col and composite_col and qty_col:
-                    formula = f'={composite_col}{excel_row}*{qty_col}{excel_row}'
-                    worksheet.write_formula(excel_row - 1, audit_df.columns.get_loc('Line Total'), 
-                                          formula, money_fmt)
-            
-            # Totals row with SUM formulas (add new row after all data)
-            totals_row = len(audit_df) + 1  # Excel row number for totals (new row)
-            for col_num, column in enumerate(audit_df.columns):
-                if column == 'Description':
-                    worksheet.write(totals_row, col_num, 'TOTALS', totals_fmt)
-                elif column in ['Qty', 'Vendor Total Cost', 'Margin $', 'After Margin', 'Tax $', 'Line Total', 'Vendor Total (from PDF)']:
-                    col_letter = self._excel_col_letter(col_num)
-                    # SUM from row 2 to last data row
-                    formula = f'=SUM({col_letter}2:{col_letter}{len(audit_df) + 1})'
-                    worksheet.write_formula(totals_row, col_num, formula, totals_fmt)
-                else:
-                    worksheet.write(totals_row, col_num, '', totals_fmt)
+            # Totals row formatting
+            tr = len(audit_df)  # xlsxwriter is 0-indexed but we wrote header at 0
+            for col_num in range(len(audit_df.columns)):
+                worksheet.write(len(audit_df), col_num,
+                                audit_df.iloc[-1, col_num], totals_fmt)
         
         if is_buffer:
             with open(temp_path, 'rb') as f:
@@ -815,52 +415,39 @@ class PricingProcessor:
     # ------------------------------------------------------------------
     def generate_client_spreadsheet(self, df: pd.DataFrame, 
                                    output_path=None,
+                                   desc_col: str = None,
+                                   qty_col: str = None,
                                    shipping_cost: float = 0.0) -> pd.DataFrame:
         """
-        Generate clean client-facing spreadsheet with 6 columns:
-        Part # | Description | UOM | Qty | Composite Unit Rate | Total
-        
-        Shows client what they're ordering with part numbers for easy reference.
+        Generate a clean 3-column client-facing spreadsheet.
+        Client sees: Description | Composite Unit Rate | Total
+        No tax line, no margin line — one all-in price per unit.
+        Shipping added as a flat pass-through line if > 0.
         """
-        # Retrieve column mappings from attrs
-        desc_col = df.attrs.get('desc_col')
-        qty_col = df.attrs.get('qty_col')
-        part_col = df.attrs.get('part_col')
-        uom_col = df.attrs.get('uom_col')
+        if desc_col is None:
+            desc_col = df.attrs.get('desc_col')
+        if qty_col is None:
+            qty_col = df.attrs.get('qty_col')
         
-        # Build client view with optional columns
+        # Build the 3-column client view
         rows = []
         for _, row in df.iterrows():
             if desc_col and pd.notna(row.get(desc_col)):
-                client_row = {}
-                
-                if part_col and pd.notna(row.get(part_col)):
-                    client_row['Part Number'] = row[part_col]
-                
-                client_row['Description'] = row[desc_col]
-                
-                if uom_col and pd.notna(row.get(uom_col)):
-                    client_row['UOM'] = row[uom_col]
-                
-                if qty_col and pd.notna(row.get(qty_col)):
-                    client_row['Qty'] = row[qty_col]
-                
-                client_row['Composite Unit Rate'] = row.get('Composite Unit Rate', 0)
-                client_row['Total'] = row.get('Total Price', 0)
-                
-                rows.append(client_row)
+                rows.append({
+                    'Description': row[desc_col],
+                    'Composite Unit Rate': row.get('Composite Unit Rate', 0),
+                    'Total': row.get('Total Price', 0)
+                })
         
         client_df = pd.DataFrame(rows)
         
         # Add shipping line
         if shipping_cost > 0:
-            ship_row = {col: '' for col in client_df.columns}
-            ship_row['Description'] = 'Shipping / Freight'
-            if 'Qty' in client_df.columns:
-                ship_row['Qty'] = 1
-            ship_row['Composite Unit Rate'] = shipping_cost
-            ship_row['Total'] = shipping_cost
-            client_df = pd.concat([client_df, pd.DataFrame([ship_row])], ignore_index=True)
+            client_df = pd.concat([client_df, pd.DataFrame([{
+                'Description': 'Shipping / Freight',
+                'Composite Unit Rate': shipping_cost,
+                'Total': shipping_cost
+            }])], ignore_index=True)
         
         # Write to Excel if output_path provided
         if output_path:
@@ -869,7 +456,7 @@ class PricingProcessor:
         return client_df
     
     def _write_client_excel(self, client_df, output_path):
-        """Write the client DataFrame to a formatted Excel file or BytesIO buffer with formulas."""
+        """Write the client DataFrame to a formatted Excel file or BytesIO buffer."""
         is_buffer = hasattr(output_path, 'write')
         
         if is_buffer:
@@ -889,60 +476,13 @@ class PricingProcessor:
                 'bold': True, 'fg_color': '#4472C4', 'font_color': 'white',
                 'border': 1
             })
-            totals_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#D0E0F0', 'border': 1,
-                'num_format': '$#,##0.00'
-            })
             
-            # Map column names to Excel column letters
-            col_map = {}
             for col_num, column in enumerate(client_df.columns):
-                col_letter = self._excel_col_letter(col_num)
-                col_map[column] = col_letter
-                
                 worksheet.write(0, col_num, column, header_fmt)
                 if column == 'Description':
-                    worksheet.set_column(col_num, col_num, 45)
-                elif column == 'Part Number':
-                    worksheet.set_column(col_num, col_num, 18)
-                elif column == 'UOM':
-                    worksheet.set_column(col_num, col_num, 8)
-                elif column == 'Qty':
-                    worksheet.set_column(col_num, col_num, 10)
-                elif column in ['Composite Unit Rate', 'Total']:
-                    worksheet.set_column(col_num, col_num, 16, money_fmt)
+                    worksheet.set_column(col_num, col_num, 50)
                 else:
-                    worksheet.set_column(col_num, col_num, 12)
-            
-            # Write formulas for Total column (rows 2 to n)
-            num_data_rows = len(client_df)
-            
-            for row_idx in range(num_data_rows):
-                excel_row = row_idx + 2  # Excel is 1-indexed, +1 for header
-                
-                # Get column letters
-                rate_col = col_map.get('Composite Unit Rate')
-                total_col = col_map.get('Total')
-                qty_col = col_map.get('Qty')
-                
-                # Total = Composite Unit Rate * Qty
-                if total_col and rate_col and qty_col:
-                    formula = f'={rate_col}{excel_row}*{qty_col}{excel_row}'
-                    worksheet.write_formula(excel_row - 1, client_df.columns.get_loc('Total'), 
-                                          formula, money_fmt)
-            
-            # Totals row with SUM formulas (add new row after all data)
-            totals_row = len(client_df) + 1  # Excel row number for totals (new row)
-            for col_num, column in enumerate(client_df.columns):
-                if column == 'Description':
-                    worksheet.write(totals_row, col_num, 'TOTALS', totals_fmt)
-                elif column in ['Qty', 'Total']:
-                    col_letter = self._excel_col_letter(col_num)
-                    # SUM from row 2 to last data row
-                    formula = f'=SUM({col_letter}2:{col_letter}{len(client_df) + 1})'
-                    worksheet.write_formula(totals_row, col_num, formula, totals_fmt)
-                else:
-                    worksheet.write(totals_row, col_num, '', totals_fmt)
+                    worksheet.set_column(col_num, col_num, 20, money_fmt)
         
         if is_buffer:
             with open(temp_path, 'rb') as f:
@@ -1109,8 +649,8 @@ def _parse_currency(value) -> Optional[float]:
         return None
 
 
-def parse_vendor_spreadsheet(file_path: str, sheet_name: str = 'Vendor Quote Sheet') -> pd.DataFrame:
-    """Parse the vendor spreadsheet format."""
+def parse_hammon_spreadsheet(file_path: str, sheet_name: str = 'HAMMON OSP_UG_TAK') -> pd.DataFrame:
+    """Parse the HAMMON spreadsheet format."""
     df = pd.read_excel(file_path, sheet_name=sheet_name, header=0)
     df = df.dropna(how='all')
     df = df[~df.iloc[:, 0].astype(str).str.contains('Subtotal|tax|Vendor Invoice|markup', na=False)]
