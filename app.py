@@ -421,7 +421,8 @@ def process_quote_tab(materials_db):
                 st.markdown('<h3>Client-Facing Quote (3-Column)</h3>', unsafe_allow_html=True)
                 st.dataframe(client_df, use_container_width=True)
                 
-                client_total = client_df['Total'].sum()
+                # Use the totals row value (last row) instead of summing
+                client_total = client_df['Total'].iloc[-1] if not client_df.empty else 0
                 st.metric("Client Grand Total", f"${client_total:,.2f}")
                 
                 # ── Audit Sheet (full trail) ─────────────────────

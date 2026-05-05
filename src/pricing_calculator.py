@@ -449,6 +449,16 @@ class PricingProcessor:
                 'Total': shipping_cost
             }])], ignore_index=True)
         
+        # Add totals row
+        if not client_df.empty:
+            total_sum = round(pd.to_numeric(client_df['Total'], errors='coerce').sum(), 2)
+            totals_row = pd.DataFrame([{
+                'Description': 'TOTAL',
+                'Composite Unit Rate': '',
+                'Total': total_sum
+            }])
+            client_df = pd.concat([client_df, totals_row], ignore_index=True)
+        
         # Write to Excel if output_path provided
         if output_path:
             self._write_client_excel(client_df, output_path)
@@ -467,22 +477,42 @@ class PricingProcessor:
             target = output_path
         
         with pd.ExcelWriter(target, engine='xlsxwriter') as writer:
-            client_df.to_excel(writer, sheet_name='Quote', index=False)
+            client_df.to_excel(writer, sheet_name='Client_Quote', index=False)
             workbook = writer.book
-            worksheet = writer.sheets['Quote']
+            worksheet = writer.sheets['Client_Quote']
             
             money_fmt = workbook.add_format({'num_format': '$#,##0.00'})
             header_fmt = workbook.add_format({
                 'bold': True, 'fg_color': '#4472C4', 'font_color': 'white',
-                'border': 1
+                'border': 1, 'text_wrap': True
+            })
+            totals_fmt = workbook.add_format({
+                'bold': True, 'num_format': '$#,##0.00',
+                'bg_color': '#D9E2F3', 'border': 1
+            })
+            totals_label_fmt = workbook.add_format({
+                'bold': True, 'bg_color': '#D9E2F3', 'border': 1
             })
             
             for col_num, column in enumerate(client_df.columns):
                 worksheet.write(0, col_num, column, header_fmt)
                 if column == 'Description':
-                    worksheet.set_column(col_num, col_num, 50)
+                    worksheet.set_column(col_num, col_num, 55)
                 else:
-                    worksheet.set_column(col_num, col_num, 20, money_fmt)
+                    worksheet.set_column(col_num, col_num, 22, money_fmt)
+            
+            # Format the totals row (last row)
+            last_row = len(client_df)
+            for col_num, column in enumerate(client_df.columns):
+                if column == 'Description':
+                    worksheet.write(last_row, col_num,
+                                    client_df.iloc[-1][column], totals_label_fmt)
+                elif column == 'Total':
+                    worksheet.write(last_row, col_num,
+                                    client_df.iloc[-1][column], totals_fmt)
+                else:
+                    worksheet.write(last_row, col_num,
+                                    client_df.iloc[-1][column], totals_label_fmt)
         
         if is_buffer:
             with open(temp_path, 'rb') as f:
