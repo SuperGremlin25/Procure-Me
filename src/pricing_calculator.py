@@ -289,12 +289,21 @@ class PricingProcessor:
             
             quantity = float(pd.to_numeric(row[qty_col], errors='coerce') or 0)
             unit_cost = float(pd.to_numeric(row.get(cost_col, 0), errors='coerce') or 0) if cost_col else 0.0
-            
-            margin_per_unit = round(unit_cost * margin_rate, 4)
-            after_margin = round(unit_cost + margin_per_unit, 4)
-            tax_per_unit = round(after_margin * tax_rate, 4)
-            composite_rate = round(after_margin + tax_per_unit, 4)
-            line_total = round(composite_rate * quantity, 2)
+
+            # Use process_quote() outputs as the single source of truth so
+            # audit and client exports always match at line level and totals.
+            composite_rate = float(pd.to_numeric(row.get('Composite Unit Rate', 0), errors='coerce') or 0)
+            line_total = float(pd.to_numeric(row.get('Total Price', 0), errors='coerce') or 0)
+
+            # Keep audit breakdown columns while staying aligned with the
+            # authoritative composite value above.
+            if tax_rate != -1:
+                after_margin = round(composite_rate / (1 + tax_rate), 6)
+            else:
+                after_margin = round(unit_cost * (1 + margin_rate), 6)
+
+            margin_per_unit = round(after_margin - unit_cost, 6)
+            tax_per_unit = round(composite_rate - after_margin, 6)
             row_num = len(audit_data) + 2  # Excel row (1-indexed, +1 for header)
             
             audit_data.append({

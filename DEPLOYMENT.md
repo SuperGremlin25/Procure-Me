@@ -139,3 +139,43 @@ pip install -r requirements.txt
 5. Consider enabling Snyk (optional)
 
 Your repository will be automatically monitored for security issues!
+
+---
+
+## Streamlit Cloud (Current Procure-Me App)
+
+1. Open `https://share.streamlit.io/`.
+1. Create a new app (or reconnect existing app) to:
+   - Repo: `SuperGremlin25/Procure-Me`
+   - Branch: `main`
+   - Main file path: `app.py`
+1. Deploy and then reboot once after first build.
+
+### Streamlit smoke test
+
+1. Upload `examples/HAMMON_MISC_BOM_sample.xlsx`.
+1. Process quote and download:
+   - `internal_audit_quote.xlsx`
+   - `client_quote.xlsx`
+   - `quote_complete.xlsx`
+1. Verify parity:
+   - Line-level totals in Audit `Line Total` match Client `Total`
+   - Audit `TOTALS` equals Client `TOTAL`
+
+## Hugging Face Spaces (Streamlit SDK)
+
+1. Create a new Space at `https://huggingface.co/new-space`.
+1. Select SDK: **Streamlit**.
+1. Push repository to the Space remote:
+
+```bash
+git remote add hf https://huggingface.co/spaces/<YOUR_USER_OR_ORG>/<YOUR_SPACE_NAME>
+git push hf main
+```
+
+1. If prompted, authenticate with your Hugging Face token.
+
+### Hugging Face smoke test
+
+1. Confirm app loads with no import errors.
+1. Run the same sample quote and verify matching totals across audit/client sheets.

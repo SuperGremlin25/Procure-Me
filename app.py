@@ -638,12 +638,25 @@ def build_quote_tab(materials_db):
         margin_rate = st.sidebar.slider("Margin Rate (%)", 0.0, 50.0, 10.0, 1.0) / 100
         
         processor = PricingProcessor(tax_rate=tax_rate, margin_rate=margin_rate)
-        
-        quote_df['composite_rate'] = quote_df['unit_cost'].apply(processor.calculate_composite_rate)
-        quote_df['total'] = (quote_df['quantity'] * quote_df['composite_rate']).round(2)
+
+        # Build a normalized frame so manual mode uses the same pricing pipeline
+        # and exports as the main Process Quote tab.
+        manual_input_df = quote_df.rename(columns={
+            'name': 'Description',
+            'quantity': 'Qty',
+            'unit_cost': 'Unit Cost'
+        }).copy()
+        processed_manual_df = processor.process_quote(
+            manual_input_df,
+            desc_col='Description',
+            qty_col='Qty',
+            cost_col='Unit Cost'
+        )
         
         # Display with formatting
-        display_df = quote_df[['name', 'quantity', 'unit', 'composite_rate', 'total']].copy()
+        display_df = quote_df[['name', 'quantity', 'unit']].copy()
+        display_df['composite_rate'] = processed_manual_df['Composite Unit Rate']
+        display_df['total'] = processed_manual_df['Total Price']
         display_df.columns = ['Description', 'Quantity', 'Unit', 'Unit Price', 'Total']
         display_df['Unit Price'] = display_df['Unit Price'].map('${:,.2f}'.format)
         display_df['Total'] = display_df['Total'].map('${:,.2f}'.format)
@@ -651,11 +664,15 @@ def build_quote_tab(materials_db):
         st.dataframe(display_df, use_container_width=True)
         
         # Summary
-        total_amount = quote_df['total'].sum()
+        total_amount = processed_manual_df['Total Price'].sum()
+        subtotal_cost = (
+            pd.to_numeric(quote_df['quantity'], errors='coerce').fillna(0)
+            * pd.to_numeric(quote_df['unit_cost'], errors='coerce').fillna(0)
+        ).sum()
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Subtotal (Cost)", f"${quote_df['unit_cost'].sum():,.2f}")
+            st.metric("Subtotal (Cost)", f"${subtotal_cost:,.2f}")
         with col2:
             st.metric("With Margin & Tax", f"${total_amount:,.2f}")
         with col3:
@@ -668,7 +685,7 @@ def build_quote_tab(materials_db):
             # Generate internal audit file
             audit_buffer = BytesIO()
             audit_df = processor.generate_internal_audit_spreadsheet(
-                quote_df, 
+                processed_manual_df,
                 tax_rate=tax_rate, 
                 margin_rate=margin_rate,
                 output_path=audit_buffer
@@ -686,7 +703,7 @@ def build_quote_tab(materials_db):
             # Generate client quote file
             client_buffer = BytesIO()
             client_df_manual = processor.generate_client_spreadsheet(
-                quote_df,
+                processed_manual_df,
                 output_path=client_buffer
             )
             
