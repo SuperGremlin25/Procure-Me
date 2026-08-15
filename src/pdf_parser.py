@@ -20,10 +20,14 @@ except ImportError:
     HAS_PDFPLUMBER = False
 
 try:
-    import fitz  # PyMuPDF
+    import pymupdf  # PyMuPDF (modern import; 'fitz' alias is deprecated)
     HAS_PYMUPDF = True
 except ImportError:
-    HAS_PYMUPDF = False
+    try:
+        import fitz as pymupdf  # Fallback for older PyMuPDF versions (<1.24)
+        HAS_PYMUPDF = True
+    except ImportError:
+        HAS_PYMUPDF = False
 
 try:
     import tabula
@@ -82,22 +86,27 @@ class PDFParser:
             temp_path = tmp.name
         
         try:
-            # Try each strategy until one works
+            # Try each strategy until one produces usable rows
             for strategy_name, strategy_func in self.strategies:
                 try:
                     print(f"Trying {strategy_name}...")
                     df = strategy_func(temp_path)
-                    if not df.empty:
-                        print(f"Success with {strategy_name}!")
-                        return self._clean_pdf_data(df)
+                    if df is not None and not df.empty:
+                        cleaned = self._clean_pdf_data(df)
+                        if not cleaned.empty:
+                            print(f"Success with {strategy_name}!")
+                            return cleaned
+                        print(f"{strategy_name} produced only empty/header rows, trying next...")
                 except Exception as e:
                     print(f"{strategy_name} failed: {str(e)}")
                     continue
-            
-            # If all strategies fail, try text extraction
+
+            # If all table strategies fail, fall back to raw text extraction
             if HAS_PYMUPDF:
-                return self._extract_from_text(temp_path)
-            
+                df = self._extract_from_text(temp_path)
+                if df is not None and not df.empty:
+                    return self._clean_pdf_data(df)
+
             raise ValueError("Could not extract data from PDF with any available method")
             
         finally:
@@ -118,7 +127,9 @@ class PDFParser:
                 # Extract tables
                 page_tables = page.extract_tables()
                 for table in page_tables:
-                    if table and len(table) > 1:  # At least header + one row
+                    # Need at least a header row + one data row, and >1 column
+                    # (single-column "tables" are usually paragraphs, not quotes)
+                    if table and len(table) > 1 and table[0] and len(table[0]) > 1:
                         df = pd.DataFrame(table[1:], columns=table[0])
                         tables.append(df)
         
@@ -185,43 +196,40 @@ class PDFParser:
     
     def _parse_with_pymupdf(self, file_path: str) -> pd.DataFrame:
         """Parse PDF using PyMuPDF."""
-        doc = fitz.open(file_path)
         tables = []
-        
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            
-            # Try to find tables
-            tabs = page.find_tables()
-            
-            if tabs:
-                for tab in tabs:
-                    df = tab.to_pandas()
-                    tables.append(df)
-        
-        doc.close()
-        
+
+        with pymupdf.open(file_path) as doc:
+            for page in doc:
+                # Try to find tables on this page
+                finder = page.find_tables()
+                # TableFinder itself is always truthy — check .tables
+                for tab in getattr(finder, 'tables', []) or []:
+                    try:
+                        df = tab.to_pandas()
+                        if df is not None and not df.empty:
+                            tables.append(df)
+                    except Exception:
+                        continue
+
         if tables:
             return pd.concat(tables, ignore_index=True)
-        else:
-            return self._extract_from_text(file_path)
-    
+        return pd.DataFrame()
+
     def _extract_from_text(self, file_path: str) -> pd.DataFrame:
         """Extract text and parse line items."""
-        doc = fitz.open(file_path)
         data = []
-        
-        for page in doc:
-            text = page.get_text()
-            lines = text.split('\n')
-            
-            for line in lines:
-                if self._looks_like_line_item(line):
-                    parsed = self._parse_line_item(line)
-                    if parsed:
-                        data.append(parsed)
-        
-        doc.close()
+
+        with pymupdf.open(file_path) as doc:
+            for page in doc:
+                text = page.get_text()
+                lines = text.split('\n')
+
+                for line in lines:
+                    if self._looks_like_line_item(line):
+                        parsed = self._parse_line_item(line)
+                        if parsed:
+                            data.append(parsed)
+
         return pd.DataFrame(data)
     
     def _looks_like_line_item(self, line: str) -> bool:
@@ -324,9 +332,50 @@ class PDFParser:
             'EXTENSION': 'Total'
         }
         
-        # Rename columns
-        df = df.rename(columns=column_mapping)
-        
+        # Normalize None/NaN column names so downstream rename works
+        df.columns = [str(c).strip() if c is not None else f'Col{i}'
+                      for i, c in enumerate(df.columns)]
+
+        # Rename columns (case-insensitive match against known vendor headers)
+        upper_mapping = {k.upper(): v for k, v in column_mapping.items()}
+        df = df.rename(columns={c: upper_mapping[c.upper()] for c in df.columns
+                                if c.upper() in upper_mapping})
+
+        # Consolidate duplicate column names created by the rename (e.g. a
+        # vendor table with both "Item" and "Description" columns would
+        # otherwise produce two "Description" columns and crash downstream).
+        if df.columns.duplicated().any():
+            deduped: Dict[str, pd.Series] = {}
+            for col in dict.fromkeys(df.columns):  # preserves order
+                same = df.loc[:, df.columns == col]
+                if same.shape[1] == 1:
+                    deduped[col] = same.iloc[:, 0]
+                else:
+                    # Prefer the column with more non-empty text content
+                    counts = [
+                        same.iloc[:, i].astype(str)
+                         .replace({'nan': '', 'None': ''})
+                         .str.strip().ne('').sum()
+                        for i in range(same.shape[1])
+                    ]
+                    deduped[col] = same.iloc[:, int(np.argmax(counts))]
+            df = pd.DataFrame(deduped)
+
+        # Drop rows that are just the header repeated (common in multi-page PDFs)
+        header_tokens = {'description', 'item', 'product', 'qty', 'quantity',
+                         'unit price', 'price', 'rate', 'total', 'amount', 'part no'}
+        if len(df) > 1:
+            keep = []
+            for _, row in df.iterrows():
+                cells = {str(v).strip().lower() for v in row.values if pd.notna(v)}
+                # If most non-empty cells are header words, it's a repeated header row
+                if cells and len(cells & header_tokens) >= max(1, len(cells) // 2 + 1) \
+                        and not any(t in cells for t in ('sales tax', 'freight')):
+                    keep.append(False)
+                else:
+                    keep.append(True)
+            df = df.loc[df.index[keep]]
+
         # Clean numeric columns
         numeric_cols = ['Quantity', 'Unit Price', 'Unit Cost', 'Total']
         for col in numeric_cols:
@@ -370,18 +419,16 @@ class PDFParser:
             with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
                 tmp.write(pdf_file.getvalue())
                 temp_path = tmp.name
-            
+
             try:
-                doc = fitz.open(temp_path)
-                info['pages'] = len(doc)
-                
-                # Check for tables
-                for page in doc:
-                    if page.find_tables():
-                        info['has_tables'] = True
-                        break
-                
-                doc.close()
+                with pymupdf.open(temp_path) as doc:
+                    info['pages'] = len(doc)
+
+                    # Check for tables (TableFinder is always truthy — check .tables)
+                    for page in doc:
+                        if getattr(page.find_tables(), 'tables', None):
+                            info['has_tables'] = True
+                            break
             except Exception:  # nosec B110
                 pass
             finally:

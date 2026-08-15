@@ -218,7 +218,22 @@ class PricingProcessor:
         
         if not merged_rows:
             return df
-        
+
+        # Flush any trailing description-only rows (e.g. "Sales Tax", "Freight",
+        # "Subtotal" lines at the end of a vendor quote) so that
+        # clean_vendor_quote() can still extract their dollar amounts.
+        trailing = [
+            ln for ln in desc_buffer
+            if not junk_line.match(ln.strip())
+            and not (short_header.match(ln.strip()) and len(ln.split()) <= 3)
+        ]
+        if trailing:
+            tail_row = merged_rows[-1].copy()
+            for col in tail_row.index:
+                tail_row[col] = None
+            tail_row[desc_col] = ' '.join(trailing)
+            merged_rows.append(tail_row)
+
         return pd.DataFrame(merged_rows).reset_index(drop=True)
     
     # ------------------------------------------------------------------

@@ -4,6 +4,7 @@ A Python-based Streamlit application that automates vendor quote processing with
 
 ## Features
 
+- 📄 **PDF Quote Processing**: Upload vendor quote PDFs — tables are extracted with pdfplumber/PyMuPDF (with plain-text fallback for borderless quotes)
 - 📊 **Excel File Processing**: Upload and parse vendor quote Excel files
 - 💰 **Automatic Calculations**: Apply margin (10%) and tax (8.25%) to vendor costs
 - 🧾 **Clean Client Output**: Generate client-facing quotes without tax breakdown
@@ -12,14 +13,15 @@ A Python-based Streamlit application that automates vendor quote processing with
 
 ## How It Works
 
-1. Upload your vendor quote Excel file
-2. Select the sheet containing the data (e.g., "HAMMON OSP_UG_TAK")
-3. The app automatically:
-   - Extracts vendor unit costs
+1. Upload your vendor quote (PDF or Excel)
+2. (Excel only) Select the sheet containing the data (e.g., "HAMMON OSP_UG_TAK")
+3. Confirm/adjust the auto-detected Description, Quantity, and Unit Cost columns
+4. The app automatically:
+   - Extracts vendor line items (plus any Sales Tax / Freight lines from the quote)
    - Adds 10% margin
    - Adds 8.25% tax
    - Creates composite unit rates
-4. Download clean client-ready spreadsheets
+5. Download clean client-ready spreadsheets, a full audit trail, or a summary report
 
 ## Installation
 
