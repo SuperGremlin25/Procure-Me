@@ -7,7 +7,6 @@ Includes mock client for testing without API key.
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
-import json
 
 
 @dataclass

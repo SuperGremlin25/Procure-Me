@@ -124,7 +124,7 @@ def test_database_connections():
         print(f"✅ Materials DB: {len(materials_db.materials)} items")
         
         labor_db = LaborDatabase()
-        print(f"✅ Labor DB loaded")
+        print(f"✅ Labor DB: {len(labor_db.tasks)} tasks")
         
         return True
         

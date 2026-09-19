@@ -406,7 +406,6 @@ class PricingProcessor:
                         worksheet.write(r, fc, val, formula_fmt)
             
             # Totals row formatting
-            tr = len(audit_df)  # xlsxwriter is 0-indexed but we wrote header at 0
             for col_num in range(len(audit_df.columns)):
                 worksheet.write(len(audit_df), col_num,
                                 audit_df.iloc[-1, col_num], totals_fmt)
@@ -435,9 +434,6 @@ class PricingProcessor:
         """
         if desc_col is None:
             desc_col = df.attrs.get('desc_col')
-        if qty_col is None:
-            qty_col = df.attrs.get('qty_col')
-        
         # Build the 3-column client view
         rows = []
         for _, row in df.iterrows():

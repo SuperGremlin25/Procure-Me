@@ -5,8 +5,7 @@ Handles parsing of PDF quotes from vendors using multiple libraries for maximum 
 """
 
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, Optional
 import re
 import io
 import warnings
@@ -106,8 +105,11 @@ class PDFParser:
             try:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as cleanup_error:
+                warnings.warn(
+                    f"Could not remove temporary PDF file: {cleanup_error}",
+                    RuntimeWarning,
+                )
     
     def _parse_with_pdfplumber(self, file_path: str) -> pd.DataFrame:
         """Parse PDF using pdfplumber."""
@@ -389,7 +391,10 @@ class PDFParser:
                 try:
                     if os.path.exists(temp_path):
                         os.unlink(temp_path)
-                except OSError:
-                    pass
+                except OSError as cleanup_error:
+                    warnings.warn(
+                        f"Could not remove temporary PDF metadata file: {cleanup_error}",
+                        RuntimeWarning,
+                    )
         
         return info
