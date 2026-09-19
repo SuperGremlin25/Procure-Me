@@ -111,7 +111,7 @@ async def spatial_join(
         stats = integrator.get_summary_statistics()
         
         # Export to KMZ
-        kmz_path = os.path.join(tempfile.gettempdir(), f"{request.jobId}_remedy_map.kmz")
+        kmz_path = _job_temp_path(request.jobId, "_remedy_map.kmz")
         integrator.export_to_kmz(kmz_path, include_normal=False)
         
         # Upload KMZ to storage (would use R2 in production)
@@ -206,7 +206,7 @@ async def download_bid(jobId: UUID):
 async def download_kmz(jobId: UUID):
     """Download KMZ file."""
     try:
-        kmz_path = os.path.join(tempfile.gettempdir(), f"{jobId}_remedy_map.kmz")
+        kmz_path = _job_temp_path(jobId, "_remedy_map.kmz")
         
         if not os.path.exists(kmz_path):
             raise HTTPException(status_code=404, detail="KMZ file not found")
@@ -228,6 +228,18 @@ ALLOWED_SHAPEFILE_HOSTS = frozenset(
     for host in os.getenv("ALLOWED_SHAPEFILE_HOSTS", "").split(",")
     if host.strip()
 )
+TEMP_DIR = Path(tempfile.gettempdir()).resolve()
+
+
+def _normalize_job_id(job_id: UUID) -> str:
+    return job_id.hex
+
+
+def _job_temp_path(job_id: UUID, suffix: str) -> str:
+    path = (TEMP_DIR / f"{_normalize_job_id(job_id)}{suffix}").resolve()
+    if path.parent != TEMP_DIR:
+        raise HTTPException(status_code=400, detail="Invalid job identifier")
+    return str(path)
 
 
 def _is_public_ip(ip_str: str) -> bool:
@@ -303,14 +315,14 @@ async def upload_to_storage(file_path: str, job_id: UUID) -> str:
     """Upload file to R2 storage (placeholder)."""
     # In production, this would upload to Cloudflare R2
     # For now, return a placeholder URL
-    return f"https://storage.example.com/kmz/{job_id}_remedy_map.kmz"
+    return f"https://storage.example.com/kmz/{_normalize_job_id(job_id)}_remedy_map.kmz"
 
 
 async def load_joined_gdf(job_id: UUID) -> Optional[gpd.GeoDataFrame]:
     """Load joined GeoDataFrame from storage."""
     # In production, this would load from R2 or database
     # For now, return None (would need to cache in Redis or similar)
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_joined.geojson")
+    cache_path = _job_temp_path(job_id, "_joined.geojson")
     
     if os.path.exists(cache_path):
         return gpd.read_file(cache_path)
@@ -321,7 +333,7 @@ async def load_joined_gdf(job_id: UUID) -> Optional[gpd.GeoDataFrame]:
 async def store_bid_result(job_id: UUID, result: Dict[str, Any]) -> None:
     """Store bid result for later retrieval."""
     import json
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
+    cache_path = _job_temp_path(job_id, "_bid.json")
     
     with open(cache_path, 'w') as f:
         json.dump(result, f)
@@ -330,7 +342,7 @@ async def store_bid_result(job_id: UUID, result: Dict[str, Any]) -> None:
 async def load_bid_result(job_id: UUID) -> Optional[Dict[str, Any]]:
     """Load bid result from storage."""
     import json
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
+    cache_path = _job_temp_path(job_id, "_bid.json")
     
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:
@@ -344,7 +356,7 @@ async def generate_bid_excel(bid_data: Dict[str, Any], job_id: UUID) -> str:
     import pandas as pd
     from io import BytesIO
     
-    output_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.xlsx")
+    output_path = _job_temp_path(job_id, "_bid.xlsx")
     
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         # Summary sheet
