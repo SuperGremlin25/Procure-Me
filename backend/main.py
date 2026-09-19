@@ -14,6 +14,7 @@ from typing import Optional, Dict, Any, List
 import geopandas as gpd
 import tempfile
 import os
+import re
 from pathlib import Path
 import httpx
 import socket
@@ -111,7 +112,7 @@ async def spatial_join(
         stats = integrator.get_summary_statistics()
         
         # Export to KMZ
-        kmz_path = os.path.join(tempfile.gettempdir(), f"{request.jobId}_remedy_map.kmz")
+        kmz_path = _build_job_temp_path(request.jobId, "_remedy_map.kmz")
         integrator.export_to_kmz(kmz_path, include_normal=False)
         
         # Upload KMZ to storage (would use R2 in production)
@@ -182,20 +183,22 @@ async def generate_bid(
 async def download_bid(jobId: str):
     """Download bid as Excel file."""
     try:
+        safe_job_id = jobId
+
         # Load bid data
-        bid_data = await load_bid_result(jobId)
+        bid_data = await load_bid_result(safe_job_id)
         
         if not bid_data:
             raise HTTPException(status_code=404, detail="Bid not found")
         
         # Generate Excel file
-        excel_path = await generate_bid_excel(bid_data, jobId)
+        excel_path = await generate_bid_excel(bid_data, safe_job_id)
         
         from fastapi.responses import FileResponse
         return FileResponse(
             excel_path,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=f"bid_{jobId}.xlsx"
+            filename=f"bid_{safe_job_id}.xlsx"
         )
         
     except Exception as e:
@@ -206,7 +209,8 @@ async def download_bid(jobId: str):
 async def download_kmz(jobId: str):
     """Download KMZ file."""
     try:
-        kmz_path = os.path.join(tempfile.gettempdir(), f"{jobId}_remedy_map.kmz")
+        safe_job_id = jobId
+        kmz_path = _build_job_temp_path(safe_job_id, "_remedy_map.kmz")
         
         if not os.path.exists(kmz_path):
             raise HTTPException(status_code=404, detail="KMZ file not found")
@@ -215,7 +219,7 @@ async def download_kmz(jobId: str):
         return FileResponse(
             kmz_path,
             media_type="application/vnd.google-earth.kmz",
-            filename=f"remedy_map_{jobId}.kmz"
+            filename=f"remedy_map_{safe_job_id}.kmz"
         )
         
     except Exception as e:
@@ -227,6 +231,8 @@ ALLOWED_SHAPEFILE_HOSTS = {
     # Add trusted storage hosts here, for example:
     # "example-bucket.s3.amazonaws.com",
 }
+
+SAFE_JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
 def _is_public_ip(ip_str: str) -> bool:
@@ -269,6 +275,19 @@ def _validate_outbound_url(url: str) -> None:
             raise HTTPException(status_code=400, detail="URL resolves to a non-public address")
 
 
+def _build_job_temp_path(job_id: str, suffix: str) -> str:
+    if not SAFE_JOB_ID_PATTERN.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    temp_dir = Path(tempfile.gettempdir()).resolve()
+    cache_path = (temp_dir / f"{job_id}{suffix}").resolve()
+
+    if cache_path.parent != temp_dir:
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    return str(cache_path)
+
+
 async def download_file(url: str) -> str:
     """Download file from URL to temp location."""
     _validate_outbound_url(url)
@@ -295,7 +314,7 @@ async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
     """Load joined GeoDataFrame from storage."""
     # In production, this would load from R2 or database
     # For now, return None (would need to cache in Redis or similar)
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_joined.geojson")
+    cache_path = _build_job_temp_path(job_id, "_joined.geojson")
     
     if os.path.exists(cache_path):
         return gpd.read_file(cache_path)
@@ -306,7 +325,7 @@ async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
 async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
     """Store bid result for later retrieval."""
     import json
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
+    cache_path = _build_job_temp_path(job_id, "_bid.json")
     
     with open(cache_path, 'w') as f:
         json.dump(result, f)
@@ -315,7 +334,7 @@ async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
 async def load_bid_result(job_id: str) -> Optional[Dict[str, Any]]:
     """Load bid result from storage."""
     import json
-    cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
+    cache_path = _build_job_temp_path(job_id, "_bid.json")
     
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:
@@ -329,7 +348,7 @@ async def generate_bid_excel(bid_data: Dict[str, Any], job_id: str) -> str:
     import pandas as pd
     from io import BytesIO
     
-    output_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.xlsx")
+    output_path = _build_job_temp_path(job_id, "_bid.xlsx")
     
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         # Summary sheet
