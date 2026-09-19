@@ -18,7 +18,7 @@ from pathlib import Path
 import httpx
 import socket
 import ipaddress
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 # Import our modules
 from src.gis_spatial_join import GISRemedyIntegrator
@@ -223,10 +223,11 @@ async def download_kmz(jobId: str):
 
 
 # Helper functions
-ALLOWED_SHAPEFILE_HOSTS = {
-    # Add trusted storage hosts here, for example:
-    # "example-bucket.s3.amazonaws.com",
-}
+ALLOWED_SHAPEFILE_HOSTS = frozenset(
+    host.strip().lower()
+    for host in os.getenv("ALLOWED_SHAPEFILE_HOSTS", "").split(",")
+    if host.strip()
+)
 
 
 def _is_public_ip(ip_str: str) -> bool:
@@ -241,22 +242,32 @@ def _is_public_ip(ip_str: str) -> bool:
     )
 
 
-def _validate_outbound_url(url: str) -> None:
+def _validate_outbound_url(url: str) -> str:
     parsed = urlparse(url)
 
-    if parsed.scheme not in {"http", "https"}:
+    if not ALLOWED_SHAPEFILE_HOSTS:
+        raise HTTPException(status_code=500, detail="Shapefile host allowlist is not configured")
+
+    if parsed.scheme != "https":
         raise HTTPException(status_code=400, detail="Invalid URL scheme")
 
     if not parsed.hostname:
         raise HTTPException(status_code=400, detail="Invalid URL host")
 
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="URL credentials are not allowed")
+
     hostname = parsed.hostname.lower()
 
-    if ALLOWED_SHAPEFILE_HOSTS and hostname not in ALLOWED_SHAPEFILE_HOSTS:
+    trusted_host = next((allowed_host for allowed_host in ALLOWED_SHAPEFILE_HOSTS if hostname == allowed_host), None)
+    if not trusted_host:
         raise HTTPException(status_code=400, detail="Host not allowed")
 
+    if parsed.port not in (None, 443):
+        raise HTTPException(status_code=400, detail="Invalid URL port")
+
     try:
-        addrinfo = socket.getaddrinfo(hostname, None)
+        addrinfo = socket.getaddrinfo(trusted_host, None)
     except socket.gaierror:
         raise HTTPException(status_code=400, detail="Unable to resolve host")
 
@@ -268,13 +279,17 @@ def _validate_outbound_url(url: str) -> None:
         if not _is_public_ip(ip_str):
             raise HTTPException(status_code=400, detail="URL resolves to a non-public address")
 
+    path = parsed.path or "/"
+    netloc = trusted_host if parsed.port is None else f"{trusted_host}:{parsed.port}"
+    return urlunparse(("https", netloc, path, "", parsed.query, ""))
+
 
 async def download_file(url: str) -> str:
     """Download file from URL to temp location."""
-    _validate_outbound_url(url)
+    validated_url = _validate_outbound_url(url)
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(url)
+        response = await client.get(validated_url, follow_redirects=False)
         response.raise_for_status()
         
         # Save to temp file
