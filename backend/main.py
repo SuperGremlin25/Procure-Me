@@ -14,6 +14,7 @@ from typing import Optional, Dict, Any
 import geopandas as gpd
 import tempfile
 import os
+import re
 from pathlib import Path
 from uuid import UUID
 import httpx
@@ -232,7 +233,10 @@ TEMP_DIR = Path(tempfile.gettempdir()).resolve()
 
 
 def _normalize_job_id(job_id: UUID) -> str:
-    return job_id.hex
+    normalized_job_id = job_id.hex
+    if not re.fullmatch(r"[0-9a-f]{32}", normalized_job_id):
+        raise HTTPException(status_code=400, detail="Invalid job identifier")
+    return normalized_job_id
 
 
 def _job_temp_path(job_id: UUID, suffix: str) -> str:
