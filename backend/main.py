@@ -10,11 +10,12 @@ This runs on Render/Railway and handles the heavy lifting:
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 import geopandas as gpd
 import tempfile
 import os
 from pathlib import Path
+from uuid import UUID
 import httpx
 import socket
 import ipaddress
@@ -23,7 +24,6 @@ from urllib.parse import urlparse, urlunparse
 # Import our modules
 from src.gis_spatial_join import GISRemedyIntegrator
 from src.remedy_action_mapper import RemedyActionMapper
-from src.mistral_ocr_client import RemedyReport
 
 app = FastAPI(title="GIS Remedy Processing API")
 
@@ -38,7 +38,7 @@ app.add_middleware(
 
 # Request models
 class SpatialJoinRequest(BaseModel):
-    jobId: str
+    jobId: UUID
     remedyData: Dict[str, Any]
     shapefileUrl: str
     poleIdField: Optional[str] = 'pole_id'
@@ -46,7 +46,7 @@ class SpatialJoinRequest(BaseModel):
 
 
 class BidGenerationRequest(BaseModel):
-    jobId: str
+    jobId: UUID
     marginRate: Optional[float] = 0.10
     taxRate: Optional[float] = 0.0825
 
@@ -100,10 +100,10 @@ async def spatial_join(
         )
         
         # Load remedy report
-        remedy_report = integrator.load_remedy_report(request.remedyData)
+        integrator.load_remedy_report(request.remedyData)
         
         # Perform spatial join
-        joined_gdf = integrator.perform_spatial_join(
+        integrator.perform_spatial_join(
             match_method=request.matchMethod
         )
         
@@ -119,7 +119,7 @@ async def spatial_join(
         
         return {
             "success": True,
-            "jobId": request.jobId,
+            "jobId": str(request.jobId),
             "statistics": stats,
             "kmzUrl": kmz_url,
             "totalPoles": len(design_gdf),
@@ -164,7 +164,7 @@ async def generate_bid(
         # Combine results
         result = {
             "success": True,
-            "jobId": request.jobId,
+            "jobId": str(request.jobId),
             "bid": bid,
             "timeline": timeline
         }
@@ -179,7 +179,7 @@ async def generate_bid(
 
 
 @app.get("/api/download-bid/{jobId}")
-async def download_bid(jobId: str):
+async def download_bid(jobId: UUID):
     """Download bid as Excel file."""
     try:
         # Load bid data
@@ -203,7 +203,7 @@ async def download_bid(jobId: str):
 
 
 @app.get("/api/download-kmz/{jobId}")
-async def download_kmz(jobId: str):
+async def download_kmz(jobId: UUID):
     """Download KMZ file."""
     try:
         kmz_path = os.path.join(tempfile.gettempdir(), f"{jobId}_remedy_map.kmz")
@@ -299,14 +299,14 @@ async def download_file(url: str) -> str:
             return tmp.name
 
 
-async def upload_to_storage(file_path: str, job_id: str) -> str:
+async def upload_to_storage(file_path: str, job_id: UUID) -> str:
     """Upload file to R2 storage (placeholder)."""
     # In production, this would upload to Cloudflare R2
     # For now, return a placeholder URL
     return f"https://storage.example.com/kmz/{job_id}_remedy_map.kmz"
 
 
-async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
+async def load_joined_gdf(job_id: UUID) -> Optional[gpd.GeoDataFrame]:
     """Load joined GeoDataFrame from storage."""
     # In production, this would load from R2 or database
     # For now, return None (would need to cache in Redis or similar)
@@ -318,7 +318,7 @@ async def load_joined_gdf(job_id: str) -> Optional[gpd.GeoDataFrame]:
     return None
 
 
-async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
+async def store_bid_result(job_id: UUID, result: Dict[str, Any]) -> None:
     """Store bid result for later retrieval."""
     import json
     cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
@@ -327,7 +327,7 @@ async def store_bid_result(job_id: str, result: Dict[str, Any]) -> None:
         json.dump(result, f)
 
 
-async def load_bid_result(job_id: str) -> Optional[Dict[str, Any]]:
+async def load_bid_result(job_id: UUID) -> Optional[Dict[str, Any]]:
     """Load bid result from storage."""
     import json
     cache_path = os.path.join(tempfile.gettempdir(), f"{job_id}_bid.json")
@@ -339,7 +339,7 @@ async def load_bid_result(job_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-async def generate_bid_excel(bid_data: Dict[str, Any], job_id: str) -> str:
+async def generate_bid_excel(bid_data: Dict[str, Any], job_id: UUID) -> str:
     """Generate Excel file from bid data."""
     import pandas as pd
     from io import BytesIO

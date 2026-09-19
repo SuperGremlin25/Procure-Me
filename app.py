@@ -6,7 +6,6 @@ A Streamlit application for processing vendor quotes with markup and tax calcula
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 from io import BytesIO
 import sys
 import os
@@ -75,10 +74,12 @@ def _detect_columns(df: pd.DataFrame) -> dict:
             unique_vals.add(v.strip())
             v_clean = v.replace('$', '').replace(',', '').replace('T', '').strip()
             try:
-                nums.append(float(v_clean))
-                numeric_count += 1
+                numeric_value = float(v_clean)
             except ValueError:
-                pass
+                numeric_value = None
+            else:
+                nums.append(numeric_value)
+                numeric_count += 1
             if len(v) > 25:
                 long_text_count += 1
         
@@ -240,6 +241,7 @@ def process_quote_tab(materials_db):
         
         # Check file type
         is_pdf = uploaded_file.type == 'application/pdf'
+        df = None
         
         try:
             if is_pdf:
@@ -312,6 +314,10 @@ def process_quote_tab(materials_db):
                     st.markdown('<h3>Uploaded Data Preview</h3>', unsafe_allow_html=True)
                     st.dataframe(df.head(10), use_container_width=True)
             
+            if df is None:
+                st.info("Select a sheet to process.")
+                return
+
             # ── Step 1: Column Mapping ──────────────────────────────
             st.markdown('<h3>Map Your Columns</h3>', unsafe_allow_html=True)
             st.markdown("Select which columns in your file correspond to Description, Quantity, and Unit Cost.")
@@ -577,8 +583,8 @@ def process_quote_tab(materials_db):
             try:
                 if 'temp_path' in locals() and os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as cleanup_error:
+                st.warning(f"Warning: Could not clean up temporary file: {cleanup_error}")
 
 
 def build_quote_tab(materials_db):
