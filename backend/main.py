@@ -15,6 +15,7 @@ import geopandas as gpd
 import tempfile
 import os
 import re
+import json
 from pathlib import Path
 from uuid import UUID
 import httpx
@@ -112,8 +113,14 @@ async def spatial_join(
         stats = integrator.get_summary_statistics()
         
         # Export to KMZ
-        kmz_path = _job_temp_path(request.jobId, "_remedy_map.kmz")
+        kmz_path = _create_temp_artifact_path(".kmz")
         integrator.export_to_kmz(kmz_path, include_normal=False)
+        _store_artifact_path(request.jobId, "kmz", kmz_path)
+
+        joined_geojson_path = _create_temp_artifact_path(".geojson")
+        joined_gdf = integrator.integrated_gdf if integrator.integrated_gdf is not None else design_gdf
+        joined_gdf.to_file(joined_geojson_path, driver="GeoJSON")
+        _store_artifact_path(request.jobId, "joined_geojson", joined_geojson_path)
         
         # Upload KMZ to storage (would use R2 in production)
         kmz_url = await upload_to_storage(kmz_path, request.jobId)
@@ -207,7 +214,9 @@ async def download_bid(jobId: UUID):
 async def download_kmz(jobId: UUID):
     """Download KMZ file."""
     try:
-        kmz_path = _job_temp_path(jobId, "_remedy_map.kmz")
+        kmz_path = _get_artifact_path(jobId, "kmz")
+        if not kmz_path:
+            raise HTTPException(status_code=404, detail="KMZ file not found")
         
         if not os.path.exists(kmz_path):
             raise HTTPException(status_code=404, detail="KMZ file not found")
@@ -230,6 +239,7 @@ ALLOWED_SHAPEFILE_HOSTS = frozenset(
     if host.strip()
 )
 TEMP_DIR = Path(tempfile.gettempdir()).resolve()
+ARTIFACT_REGISTRY_PATH = TEMP_DIR / "procure_me_job_artifacts.json"
 
 
 def _normalize_job_id(job_id: UUID) -> str:
@@ -239,11 +249,53 @@ def _normalize_job_id(job_id: UUID) -> str:
     return normalized_job_id
 
 
-def _job_temp_path(job_id: UUID, suffix: str) -> str:
-    path = (TEMP_DIR / f"{_normalize_job_id(job_id)}{suffix}").resolve()
-    if path.parent != TEMP_DIR:
-        raise HTTPException(status_code=400, detail="Invalid job identifier")
-    return str(path)
+def _validate_temp_artifact_path(path: str) -> str:
+    resolved_path = Path(path).resolve()
+    if resolved_path.parent != TEMP_DIR:
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+    return str(resolved_path)
+
+
+def _create_temp_artifact_path(suffix: str) -> str:
+    with tempfile.NamedTemporaryFile(delete=False, dir=TEMP_DIR, suffix=suffix) as tmp:
+        return tmp.name
+
+
+def _artifact_key(job_id: UUID, artifact_name: str) -> str:
+    return f"{_normalize_job_id(job_id)}:{artifact_name}"
+
+
+def _load_artifact_registry() -> Dict[str, str]:
+    if not ARTIFACT_REGISTRY_PATH.exists():
+        return {}
+
+    with ARTIFACT_REGISTRY_PATH.open("r", encoding="utf-8") as registry_file:
+        registry = json.load(registry_file)
+    return {
+        key: _validate_temp_artifact_path(value)
+        for key, value in registry.items()
+    }
+
+
+def _save_artifact_registry(registry: Dict[str, str]) -> None:
+    with ARTIFACT_REGISTRY_PATH.open("w", encoding="utf-8") as registry_file:
+        json.dump(registry, registry_file)
+
+
+def _store_artifact_path(job_id: UUID, artifact_name: str, path: str) -> str:
+    validated_path = _validate_temp_artifact_path(path)
+    registry = _load_artifact_registry()
+    registry[_artifact_key(job_id, artifact_name)] = validated_path
+    _save_artifact_registry(registry)
+    return validated_path
+
+
+def _get_artifact_path(job_id: UUID, artifact_name: str) -> Optional[str]:
+    registry = _load_artifact_registry()
+    path = registry.get(_artifact_key(job_id, artifact_name))
+    if not path:
+        return None
+    return _validate_temp_artifact_path(path)
 
 
 def _is_public_ip(ip_str: str) -> bool:
@@ -326,7 +378,9 @@ async def load_joined_gdf(job_id: UUID) -> Optional[gpd.GeoDataFrame]:
     """Load joined GeoDataFrame from storage."""
     # In production, this would load from R2 or database
     # For now, return None (would need to cache in Redis or similar)
-    cache_path = _job_temp_path(job_id, "_joined.geojson")
+    cache_path = _get_artifact_path(job_id, "joined_geojson")
+    if not cache_path:
+        return None
     
     if os.path.exists(cache_path):
         return gpd.read_file(cache_path)
@@ -336,17 +390,18 @@ async def load_joined_gdf(job_id: UUID) -> Optional[gpd.GeoDataFrame]:
 
 async def store_bid_result(job_id: UUID, result: Dict[str, Any]) -> None:
     """Store bid result for later retrieval."""
-    import json
-    cache_path = _job_temp_path(job_id, "_bid.json")
+    cache_path = _create_temp_artifact_path(".json")
     
     with open(cache_path, 'w') as f:
         json.dump(result, f)
+    _store_artifact_path(job_id, "bid_json", cache_path)
 
 
 async def load_bid_result(job_id: UUID) -> Optional[Dict[str, Any]]:
     """Load bid result from storage."""
-    import json
-    cache_path = _job_temp_path(job_id, "_bid.json")
+    cache_path = _get_artifact_path(job_id, "bid_json")
+    if not cache_path:
+        return None
     
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:
@@ -358,9 +413,8 @@ async def load_bid_result(job_id: UUID) -> Optional[Dict[str, Any]]:
 async def generate_bid_excel(bid_data: Dict[str, Any], job_id: UUID) -> str:
     """Generate Excel file from bid data."""
     import pandas as pd
-    from io import BytesIO
     
-    output_path = _job_temp_path(job_id, "_bid.xlsx")
+    output_path = _create_temp_artifact_path(".xlsx")
     
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         # Summary sheet
@@ -381,7 +435,7 @@ async def generate_bid_excel(bid_data: Dict[str, Any], job_id: UUID) -> str:
         timeline_df = pd.DataFrame([bid_data['timeline']])
         timeline_df.to_excel(writer, sheet_name='Timeline', index=False)
     
-    return output_path
+    return _store_artifact_path(job_id, "bid_xlsx", output_path)
 
 
 if __name__ == "__main__":
