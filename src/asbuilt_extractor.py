@@ -38,7 +38,7 @@ def normalize(text: str, upper: bool = True) -> str:
         if not any(char.isdigit() for char in token):
             return m.group(0)
         return token.replace("O", "0").replace("I", "1").replace("L", "1") + m.group(2)
-    t = re.sub(r"(?<![A-Z0-9])([\dOIL,]+)(\s*(?:LF|FT\b|'))", _fix, t)
+    t = re.sub(r"(?<![A-Z0-9])([\dOIL]{1,12}(?:,[\dOIL]{3}){0,3})(\s*(?:LF|FT\b|'))", _fix, t)
     return t
 
 
@@ -491,7 +491,7 @@ def _material_size(name: str) -> Optional[float]:
 
 def _hh_dims(name: str) -> Optional[Tuple[int, int]]:
     n = normalize(name)
-    m = re.search(r"(\d{1,3})\s*(\"|')?\s*X\s*(\d{1,3})", n)
+    m = re.search(r"(\d{1,3})\s{0,3}(\"|')?\s{0,3}X\s{0,3}(\d{1,3})", n)
     if not m:
         return None
     a, b = int(m.group(1)), int(m.group(3))
