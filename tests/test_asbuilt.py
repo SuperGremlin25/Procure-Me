@@ -8,7 +8,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.asbuilt_extractor import extract_takeoff, normalize, parse_size, fmt_size, match_material, summarize, to_bom
+from src.asbuilt_extractor import (
+    extract_takeoff, normalize, parse_size, fmt_size, match_material, summarize, to_bom, _material_size,
+)
 from src import asbuilt_ocr as ocr
 from src.asbuilt_ocr import OcrPage, OcrWord, dedupe, group_lines, scan_document, available_engines
 from src.materials_db import MaterialsDatabase
@@ -30,6 +32,10 @@ def items(words):
 def test_sizes():
     assert parse_size("1-1/4") == 1.25 and parse_size("3/4") == 0.75 and parse_size("2") == 2.0
     assert fmt_size(1.25) == '1-1/4"' and fmt_size(0.25) == '1/4"' and fmt_size(2) == '2"'
+
+
+def test_long_numeric_size_does_not_trigger_unbounded_regex_work():
+    assert _material_size("9" * 10_000) is None
 
 
 def test_ocr_digit_confusion_fixed():

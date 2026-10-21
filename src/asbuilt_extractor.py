@@ -34,8 +34,11 @@ def normalize(text: str, upper: bool = True) -> str:
     t = re.sub(r"\bL\.?\s?F\.?\b", "LF", t)
     # OCR digit confusions (O/I/L read for 0/1) inside numeric tokens that carry a footage unit
     def _fix(m: "re.Match[str]") -> str:
-        return m.group(1).replace("O", "0").replace("I", "1").replace("L", "1") + m.group(2)
-    t = re.sub(r"(?<![A-Z0-9])([\dOIL,]*\d[\dOIL,]*)(\s*(?:LF|FT\b|'))", _fix, t)
+        token = m.group(1)
+        if not any(char.isdigit() for char in token):
+            return m.group(0)
+        return token.replace("O", "0").replace("I", "1").replace("L", "1") + m.group(2)
+    t = re.sub(r"(?<![A-Z0-9])([\dOIL,]+)(\s*(?:LF|FT\b|'))", _fix, t)
     return t
 
 
@@ -72,7 +75,9 @@ _NUM = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
 LENGTH_RE = re.compile(rf"(?<![\d.+/])(?P<qty>{_NUM})\s*(?P<unit>LF|LIN\.? ?FT|FEET|FT\.?|')(?![A-Z0-9])")
 STATION_RE = re.compile(
     r"STA\.?\s*(?P<a1>\d+)\+(?P<a2>\d{2}(?:\.\d+)?)\s*(?:TO|-|THRU|THROUGH)\s*(?:STA\.?\s*)?(?P<b1>\d+)\+(?P<b2>\d{2}(?:\.\d+)?)")
-SIZE_RE = re.compile(r'(?P<size>\d+\s*-\s*\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?:"|IN\b|INCH(?:ES)?\b)')
+SIZE_RE = re.compile(
+    r'(?P<size>\d{1,6}\s*-\s*\d{1,6}/\d{1,6}|\d{1,6}/\d{1,6}|\d{1,6}(?:\.\d{1,6})?)'
+    r'\s*(?:"|IN\b|INCH(?:ES)?\b)')
 COUNT_RE = re.compile(r"\((?P<n1>\d+)\)\s*(?=\d)|(?<![\d.])(?P<n2>\d+)\s*(?:-WAY|\s*WAY)")
 FIBER_CT_RE = re.compile(r"\b(?P<ct>\d{1,3})\s*(?:CT|COUNT|FIBER|F)\b(?!\w)")
 QTY_RE = re.compile(r"\b(?:QTY|QUANTITY|COUNT)\s*[:=]?\s*(?P<q>\d+)\b")
@@ -486,7 +491,7 @@ def _material_size(name: str) -> Optional[float]:
 
 def _hh_dims(name: str) -> Optional[Tuple[int, int]]:
     n = normalize(name)
-    m = re.search(r"(\d+)\s*(\"|')?\s*X\s*(\d+)", n)
+    m = re.search(r"(\d{1,3})\s*(\"|')?\s*X\s*(\d{1,3})", n)
     if not m:
         return None
     a, b = int(m.group(1)), int(m.group(3))
