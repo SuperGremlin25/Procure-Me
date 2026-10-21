@@ -107,3 +107,13 @@ procure-me/
 ## License
 
 MIT License - see LICENSE file for details.
+## As-Built Scanner (OCR)
+
+The **📐 As-Built Scanner** tab turns a scanned or plotted as-built (PDF, PNG, JPG, TIFF) into a verified takeoff and a priced bill of materials.
+
+1. **Scan** – uses the PDF text layer when a plot has one, otherwise local OCR ([RapidOCR](https://github.com/RapidAI/RapidOCR), no system install). Scans are auto-straightened, large sheets are read in overlapping tiles with two tilings merged, and vertical route labels are read natively. Optional Mistral OCR engine when `MISTRAL_API_KEY` is set.
+2. **Extract** – title block (project / sheet / date / revision ...), footage callouts like `(2) 2" HDPE BY DIRECTIONAL BORE 1,250 LF` (duct count × length), stationing runs (`STA 10+00 TO 22+50`, never double-counted against a matching callout), structures (HH-12, poles, cabinets, flowerpots), and `4 EA ...` quantity tables. Pole heights and cover/depth notes are not mistaken for footage.
+3. **Verify** – every item is boxed on the drawing, color-coded by category, with OCR confidence and flags (`low-confidence`, `possible duplicate callout`, `type/size from nearby text - verify`). The takeoff table is editable.
+4. **Price** – items map to the Materials List (conduit and strand by size, handholes by nearest size - flagged `APPROX`), then run through the same margin/tax pricing as the other tabs. Download the takeoff workbook or **Send to Build Quote**.
+
+OCR output always needs a human check against the drawing before it is used to buy material.
