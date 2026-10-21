@@ -34,8 +34,11 @@ def normalize(text: str, upper: bool = True) -> str:
     t = re.sub(r"\bL\.?\s?F\.?\b", "LF", t)
     # OCR digit confusions (O/I/L read for 0/1) inside numeric tokens that carry a footage unit
     def _fix(m: "re.Match[str]") -> str:
-        return m.group(1).replace("O", "0").replace("I", "1").replace("L", "1") + m.group(2)
-    t = re.sub(r"(?<![A-Z0-9])([\dOIL,]*\d[\dOIL,]*)(\s*(?:LF|FT\b|'))", _fix, t)
+        token = m.group(1)
+        if not any(char.isdigit() for char in token):
+            return m.group(0)
+        return token.replace("O", "0").replace("I", "1").replace("L", "1") + m.group(2)
+    t = re.sub(r"(?<![A-Z0-9])([\dOIL]{1,12}(?:,[\dOIL]{3}){0,3})(\s*(?:LF|FT\b|'))", _fix, t)
     return t
 
 
@@ -72,8 +75,10 @@ _NUM = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
 LENGTH_RE = re.compile(rf"(?<![\d.+/])(?P<qty>{_NUM})\s*(?P<unit>LF|LIN\.? ?FT|FEET|FT\.?|')(?![A-Z0-9])")
 STATION_RE = re.compile(
     r"STA\.?\s*(?P<a1>\d+)\+(?P<a2>\d{2}(?:\.\d+)?)\s*(?:TO|-|THRU|THROUGH)\s*(?:STA\.?\s*)?(?P<b1>\d+)\+(?P<b2>\d{2}(?:\.\d+)?)")
-SIZE_RE = re.compile(r'(?P<size>\d+\s*-\s*\d/\d|\d/\d|\d+(?:\.\d+)?)\s*(?:"|IN\b|INCH(?:ES)?\b)')
-COUNT_RE = re.compile(r"\((?P<n1>\d+)\)\s*(?=\d)|(?<![\d.])(?P<n2>\d)\s*(?:-WAY|\s*WAY|-(?=\d))")
+SIZE_RE = re.compile(
+    r'(?P<size>\d{1,6}\s*-\s*\d{1,6}/\d{1,6}|\d{1,6}/\d{1,6}|\d{1,6}(?:\.\d{1,6})?)'
+    r'\s*(?:"|IN\b|INCH(?:ES)?\b)')
+COUNT_RE = re.compile(r"\((?P<n1>\d+)\)\s*(?=\d)|(?<![\d.])(?P<n2>\d+)\s*(?:-WAY|\s*WAY)")
 FIBER_CT_RE = re.compile(r"\b(?P<ct>\d{1,3})\s*(?:CT|COUNT|FIBER|F)\b(?!\w)")
 QTY_RE = re.compile(r"\b(?:QTY|QUANTITY|COUNT)\s*[:=]?\s*(?P<q>\d+)\b")
 TABLE_RE = re.compile(r"^\s*(?P<q>\d+)\s*(?P<u>EA|EACH|LF|FT|PCS|ROLL|SET|LOT|CT)\b\.?\s*[-:]?\s*(?P<d>.{4,})$")
@@ -314,27 +319,42 @@ def _spec(t: str) -> Tuple[str, int]:
 
 def _length_items(ln: TextLine, t: str, near: List[str]) -> List[dict]:
     out = []
-    for m in LENGTH_RE.finditer(t):
-        qty = _to_float(m.group("qty"))
-        unit = m.group("unit")
-        if unit == "'" and not re.search(r"\d\s*'\s*(?:OF|[A-Z])", t[m.start():m.end() + 3]) and qty < 20:
-            continue
-        if "POLE" in t and not any(rx.search(t) for name, rx in CATEGORY_RULES if name != "Pole"):
-            continue  # "40' CLASS 4 POLE": a pole height, not footage
-        cat, size, count, borrowed = _context(t, near)
-        if not cat or cat == "Pole":
-            continue
-        if re.search(r"\bDEPTH|COVER|MIN\b|\bAT\b \d+'?\s*DEEP", t) and qty < 20:
-            continue  # cover/depth notes
-        desc = cat
-        if size:
-            desc += f' {size}'
-        if count > 1:
-            desc += f" x{count}"
-        if cat == "Directional Bore" and re.search(r"\b(HDPE|CONDUIT|DUCT)\b", " ".join([t] + near[:2])):
-            desc += " conduit"
-        out.append(_row(ln, category=cat, description=desc, size=size, count=count, qty=qty, unit="LF",
-                        flags="type/size from nearby text - verify" if borrowed else ""))
+    matches = list(LENGTH_RE.finditer(t))
+    for segment in re.split(
+            r'\bAND\b|[;\n]|,\s*(?=(?:\(\d+\)\s*)?\d+(?:\s*-\s*\d+/\d+|\s*/\s*\d+)?\s*(?:"|IN\b))', t):
+        segment_matches = list(LENGTH_RE.finditer(segment))
+        for m in segment_matches:
+            qty = _to_float(m.group("qty"))
+            unit = m.group("unit")
+            if unit == "'" and not re.search(r"\d\s*'\s*(?:OF|[A-Z])", segment[m.start():m.end() + 3]) and qty < 20:
+                continue
+            if "POLE" in segment and not any(rx.search(segment) for name, rx in CATEGORY_RULES if name != "Pole"):
+                continue  # "40' CLASS 4 POLE": a pole height, not footage
+            context_text = segment if len(matches) > 1 else t
+            if len(segment_matches) > 1:
+                cat, size, count, borrowed = "", "", 1, False
+            else:
+                cat, size, count, borrowed = _context(context_text, [] if len(matches) > 1 else near)
+            if cat == "Pole":
+                continue
+            if re.search(r"\bDEPTH|COVER|MIN\b|\bAT\b \d+'?\s*DEEP", segment) and qty < 20:
+                continue  # cover/depth notes
+            ambiguous = len(matches) > 1 and (not cat or not size or len(segment_matches) > 1)
+            cat = cat or "Unclassified"
+            desc = cat
+            if size:
+                desc += f' {size}'
+            fiber_ct = FIBER_CT_RE.search(segment)
+            if fiber_ct:
+                desc += f' {fiber_ct.group("ct")}ct'
+            if count > 1:
+                desc += f" x{count}"
+            if cat == "Directional Bore" and re.search(r"\b(HDPE|CONDUIT|DUCT)\b", segment):
+                desc += " conduit"
+            flags = "ambiguous callout segment - verify" if ambiguous else (
+                "type/size from nearby text - verify" if borrowed else "")
+            out.append(_row(ln, category=cat, description=desc, size=size, count=count, qty=qty, unit="LF",
+                            flags=flags))
     return out
 
 
@@ -348,10 +368,9 @@ def _station_items(ln: TextLine, t: str, near: List[str]) -> List[dict]:
             continue
         cat, size, count, _ = _context(t, near)
         cat = cat or "Station Run"
-        has_lf = bool(LENGTH_RE.search(t))
         out.append(_row(ln, category=cat, description=f"{cat} (stationing {m.group(0)})", size=size, count=count,
-                        qty=qty, unit="LF", include=not has_lf,
-                        flags="stationing - cross-check vs callout" if has_lf else "from stationing"))
+                        qty=qty, unit="LF", flags="stationing - cross-check vs callout"
+                        if LENGTH_RE.search(t) else "from stationing"))
     return out
 
 
@@ -364,6 +383,8 @@ def _struct_items(ln: TextLine, t: str, seen: set) -> List[dict]:
     lead_qty = float(tm.group("q")) if tm else None
     for m in STRUCT_RE.finditer(t):
         word, sid = m.group("word"), m.group("id")
+        if sid and re.match(r"\s*[xX]\s*\d", t[m.end():]):
+            sid = None
         if word in _ID_REQUIRED and not sid:
             continue
         stype = _struct_type(word)
@@ -400,16 +421,37 @@ def _table_items(ln: TextLine, t: str) -> List[dict]:
 
 
 def _crosscheck_stations(df: pd.DataFrame) -> pd.DataFrame:
-    """A stationing run that equals a printed footage callout is the same run - count it once."""
+    """Exclude stationing only when a nearby callout has matching material specifications."""
     if df.empty:
         return df
-    st = df["flags"].astype(str).str.contains("from stationing")
+    st = df["flags"].astype(str).str.contains("from stationing|stationing - cross-check", regex=True)
     callouts = df[(df["unit"] == "LF") & ~st & df["include"].astype(bool)]
     for i in df[st].index:
-        same = callouts[(callouts["page"] == df.at[i, "page"]) & ((callouts["qty"] - df.at[i, "qty"]).abs() <= 1.5)]
-        if not same.empty:
+        same = callouts[(callouts["page"] == df.at[i, "page"]) &
+                        ((callouts["qty"] - df.at[i, "qty"]).abs() <= 1.5)]
+        if same.empty:
+            continue
+        height = max(float(df.at[i, "y1"]) - float(df.at[i, "y0"]), 1)
+        compatible = same[
+            (same["category"] == df.at[i, "category"]) &
+            (same["size"].fillna("") == df.at[i, "size"]) &
+            (same["count"].fillna(1) == df.at[i, "count"])
+        ]
+        def associated(row: pd.Series) -> bool:
+            if row["source_text"] == df.at[i, "source_text"]:
+                return True
+            dx = max(float(row["x0"]) - float(df.at[i, "x1"]),
+                     float(df.at[i, "x0"]) - float(row["x1"]), 0)
+            dy = max(float(row["y0"]) - float(df.at[i, "y1"]),
+                     float(df.at[i, "y0"]) - float(row["y1"]), 0)
+            return dx <= height * 4 and dy <= height * 4
+
+        nearby = compatible[compatible.apply(associated, axis=1)]
+        if not nearby.empty:
             df.at[i, "include"] = False
-            df.at[i, "flags"] = "matches callout - not double counted"
+            df.at[i, "flags"] = "matches nearby compatible callout - not double counted"
+        else:
+            df.at[i, "flags"] = "matching footage length - verify route/specifications"
     return df
 
 
@@ -449,13 +491,26 @@ def _material_size(name: str) -> Optional[float]:
 
 def _hh_dims(name: str) -> Optional[Tuple[int, int]]:
     n = normalize(name)
-    m = re.search(r"(\d+)\s*(\"|')?\s*X\s*(\d+)", n)
+    m = re.search(r"(\d{1,3})\s{0,3}(\"|')?\s{0,3}X\s{0,3}(\d{1,3})", n)
     if not m:
         return None
     a, b = int(m.group(1)), int(m.group(3))
     if "'" in n[m.start():m.end() + 2]:  # feet -> inches
         a, b = a * 12, b * 12
     return tuple(sorted((a, b)))  # type: ignore[return-value]
+
+
+def _is_handhole(description: str) -> bool:
+    return bool(re.search(r"\b(?:HAND\s?HOLE|HH(?:[- #]?\w+)?)\b", description, re.I))
+
+
+def _normalized_unit(unit: str) -> str:
+    normalized = re.sub(r"[^A-Z]", "", str(unit).upper())
+    if normalized in {"LF", "FT", "FOOT", "FEET", "LINEARFT"}:
+        return "LF"
+    if normalized in {"EA", "EACH", "PC", "PCS", "UNIT"}:
+        return "EA"
+    return normalized
 
 
 def match_material(row: pd.Series, materials: List[dict]) -> Tuple[Optional[dict], str]:
@@ -468,15 +523,19 @@ def match_material(row: pd.Series, materials: List[dict]) -> Tuple[Optional[dict
         return next((m for m in materials if pred(m)), None)
 
     if cat in ("Directional Bore", "Trench", "Plow", "Conduit") and size is not None:
-        m = pick(lambda m: m.get("category") == "Conduit" and _material_size(m["name"]) == size)
+        m = pick(lambda m: m.get("category") == "Conduit" and _normalized_unit(m.get("unit", "")) == "LF" and
+                 _material_size(m["name"]) == size)
         if m:
             return m, f'conduit size {fmt_size(size)}'
     if cat == "Aerial" and size is not None:
-        m = pick(lambda m: "messenger" in m["name"].lower() and _material_size(m["name"]) == size) or \
-            pick(lambda m: "strand" in m["name"].lower() and _material_size(m["name"]) == size)
+        m = pick(lambda m: m.get("category") == "Aerial" and _normalized_unit(m.get("unit", "")) == "LF" and
+                 "messenger" in m["name"].lower() and _material_size(m["name"]) == size) or \
+            pick(lambda m: m.get("category") == "Aerial" and _normalized_unit(m.get("unit", "")) == "LF" and
+                 "strand" in m["name"].lower() and _material_size(m["name"]) == size)
         if m:
             return m, "strand size"
-    if cat == "Structure" and row["size"]:
+    handhole = cat == "Structure" and _is_handhole(desc)
+    if handhole and row["size"]:
         want = tuple(sorted(int(x) for x in re.findall(r"\d+", str(row["size"]))[:2]))
         if len(want) == 2:
             m = pick(lambda m: m.get("category") == "Hand Holes" and _hh_dims(m["name"]) == want)
@@ -486,7 +545,7 @@ def match_material(row: pd.Series, materials: List[dict]) -> Tuple[Optional[dict
         m = pick(lambda m: "flowerpot" in m["name"].lower())
         if m:
             return m, "flowerpot"
-    if cat == "Structure" and row["size"] and re.match(r"^\d+x\d+", str(row["size"])):
+    if handhole and row["size"] and re.match(r"^\d+x\d+", str(row["size"])):
         want = tuple(sorted(int(x) for x in re.findall(r"\d+", str(row["size"]))[:2]))
         cands = [(m, _hh_dims(m["name"])) for m in materials if m.get("category") == "Hand Holes"]
         cands = [(m, d) for m, d in cands if d]
@@ -494,14 +553,42 @@ def match_material(row: pd.Series, materials: List[dict]) -> Tuple[Optional[dict
             import math
             m, d = min(cands, key=lambda md: abs(math.log((md[1][0] * md[1][1]) / (want[0] * want[1]))))
             return m, f"APPROX nearest HH size ({want[0]}x{want[1]} -> {d[0]}x{d[1]})"
-    # fuzzy fallback
-    names = {m["name"].lower(): m for m in materials}
-    hit = difflib.get_close_matches(desc.lower(), list(names), n=1, cutoff=0.55)
+    # Fuzzy matching is limited to materials with compatible types, dimensions, and units.
+    type_categories = {
+        "Directional Bore": {"Conduit"}, "Trench": {"Conduit"}, "Plow": {"Conduit"}, "Conduit": {"Conduit"},
+        "Aerial": {"Aerial"}, "Fiber Cable": {"Cable"},
+    }
+    eligible = []
+    for material in materials:
+        if material.get("category") not in type_categories.get(cat, set()):
+            continue
+        if _normalized_unit(material.get("unit", "")) != _normalized_unit(row["unit"]):
+            continue
+        material_size = _material_size(material["name"])
+        if size is not None and material_size != size:
+            continue
+        if cat == "Aerial":
+            desc_lower, name_lower = desc.lower(), material["name"].lower()
+            if any(token in desc_lower for token in ("strand", "messenger")) and not any(
+                    token in name_lower for token in ("strand", "messenger")):
+                continue
+            if any(token in desc_lower for token in ("fiber", "cable")) and not any(
+                    token in name_lower for token in ("fiber", "cable")):
+                continue
+        if cat == "Fiber Cable":
+            fiber_ct = FIBER_CT_RE.search(desc.upper())
+            material_ct = FIBER_CT_RE.search(material["name"].upper())
+            if not re.search(r"\b(?:FIBER|CABLE)\b", material["name"], re.I) or \
+                    (fiber_ct and (not material_ct or fiber_ct.group("ct") != material_ct.group("ct"))):
+                continue
+        eligible.append(material)
+    names = {m["name"].lower(): m for m in eligible}
+    hit = difflib.get_close_matches(desc.lower(), list(names), n=1, cutoff=0.72)
     if hit:
         return names[hit[0]], "name similarity"
     toks = [w for w in re.findall(r"[a-z0-9]+", desc.lower()) if len(w) > 2]
     best, score = None, 0
-    for m in materials:
+    for m in eligible:
         mt = set(re.findall(r"[a-z0-9]+", m["name"].lower()))
         s = sum(1 for w in toks if w in mt)
         if s > score:

@@ -77,6 +77,8 @@ def render_pages(data: bytes, filename: str, dpi: int = 200, max_side: int = 700
     img = Image.open(io.BytesIO(data))
     pages = []
     n = getattr(img, "n_frames", 1)
+    if n > max_pages:
+        raise ValueError(f"Document has {n} pages; the maximum supported is {max_pages}.")
     for i in range(min(n, max_pages)):
         img.seek(i)
         pages.append((ImageOps.exif_transpose(img.convert("RGB")), []))
@@ -89,6 +91,8 @@ def _render_pdf(data: bytes, dpi: int, max_side: int, max_pages: int):
     out = []
     pdf = pdfium.PdfDocument(data)
     try:
+        if len(pdf) > max_pages:
+            raise ValueError(f"Document has {len(pdf)} pages; the maximum supported is {max_pages}.")
         native = _native_words(data, dpi, max_pages)
         for i in range(min(len(pdf), max_pages)):
             page = pdf[i]
@@ -232,6 +236,19 @@ def _union(a: Box, b: Box) -> Box:
     return (min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]))
 
 
+def _inverse_rotate_box(box: Box, angle: float, width: int, height: int) -> Box:
+    """Map a box from the deskewed image back to the original page coordinates."""
+    radians = math.radians(angle)
+    cos_a, sin_a = math.cos(radians), math.sin(radians)
+    cx, cy = width / 2, height / 2
+    points = []
+    for x, y in ((box[0], box[1]), (box[0], box[3]), (box[2], box[1]), (box[2], box[3])):
+        dx, dy = x - cx, y - cy
+        points.append((cx + cos_a * dx - sin_a * dy, cy + sin_a * dx + cos_a * dy))
+    return (max(0, min(x for x, _ in points)), max(0, min(y for _, y in points)),
+            min(width, max(x for x, _ in points)), min(height, max(y for _, y in points)))
+
+
 def _stitch(a: OcrWord, b: OcrWord) -> Optional[OcrWord]:
     """Join two reads of the same line split by a tile seam: the end of one repeats the start of the other
     ('Columbus Fiber Phase' + 'er Phase 2' -> 'Columbus Fiber Phase 2')."""
@@ -348,6 +365,8 @@ def scan_document(data: bytes, filename: str, engine: str = "auto", dpi: int = 2
     avail = available_engines()
     if engine == "auto":
         engine = "rapidocr" if "rapidocr" in avail else ("tesseract" if "tesseract" in avail else "")
+    if force_ocr and engine not in ("rapidocr", "tesseract", "mistral"):
+        raise RuntimeError("Force OCR is enabled, but no OCR engine is available.")
     results: List[OcrPage] = []
     mistral_pages: List[str] = []
     if engine == "mistral":
@@ -378,9 +397,12 @@ def scan_document(data: bytes, filename: str, engine: str = "auto", dpi: int = 2
                                           progress=lambda f, n=n: prog((n + f) / len(tilings), f"Page {i + 1}: reading text"))
             else:
                 words = _tesseract_words(proc, i, min_conf)
+            if angle:
+                for word in words:
+                    word.box = _inverse_rotate_box(word.box, angle, img.width, img.height)
             page.words = dedupe(words)
             # keep native text layer words too (sparse text layer on top of a raster)
-            if native:
+            if native and not force_ocr:
                 page.words = dedupe(page.words + native)
             page.engine = engine + (f" (deskew {angle:+.1f}°)" if angle else "")
         else:
