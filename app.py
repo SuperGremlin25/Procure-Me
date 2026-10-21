@@ -184,7 +184,7 @@ def main():
     materials_db = MaterialsDatabase(data_file_path)
     
     # Main navigation
-    tab1, tab2, tab3 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Process Quote", "🔧 Build Quote", "📦 Materials List", "📐 As-Built Scanner"])
     
     with tab1:
         process_quote_tab(materials_db)
@@ -194,6 +194,10 @@ def main():
     
     with tab3:
         materials_list_tab(materials_db)
+
+    with tab4:
+        from src import asbuilt_ui
+        asbuilt_ui.render(materials_db)
 
 
 def process_quote_tab(materials_db):
