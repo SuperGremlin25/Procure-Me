@@ -155,7 +155,7 @@ def parse_remedy_markdown(markdown: str) -> List[RemedyAction]:
         if all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c):
             continue
         lowered = [c.lower() for c in cells]
-        if not header and any(k in " ".join(lowered) for k in ("pole", "structure")) and \
+        if any(k in " ".join(lowered) for k in ("pole", "structure")) and \
                 any(k in " ".join(lowered) for k in ("action", "remedy", "make", "work", "description")):
             header = lowered
             continue
@@ -173,12 +173,21 @@ def parse_remedy_markdown(markdown: str) -> List[RemedyAction]:
             continue
         desc = col("action", "remedy", "make", "work", "description")
         notes = col("note", "comment", "remark")
-        text = f"{desc} {notes}".lower()
-        pole_replace = bool(re.search(r"replace|new pole|set pole|change.?out", text))
-        comm_move = bool(re.search(r"comm|fiber|attach|lower|raise|move|transfer|relocat", text))
-        action_type = "POLE_REPLACE" if pole_replace else ("COMM_MOVE" if comm_move else "OTHER")
+        text = desc.lower()
+        action = re.match(r"^\s*(?:replace|replacement|change.?out|swap|set|install|new)\b\s*(.*)", text)
+        object_text = re.split(r"\b(?:for|on|with|at|by)\b", action.group(1), maxsplit=1)[0] if action else ""
+        pole_replace = bool(re.search(r"\bpole\b", object_text) or
+                            re.search(r"^\s*pole\s+(?:replacement|replace)\b", text))
+        comm_move = bool(
+            re.search(r"\b(?:comm(?:unication)?s?|fiber|fibre|attachment|strand|messenger|cable)\b", text) and
+            re.search(r"\b(?:move|transfer|relocat\w*|lower|raise|attach|replace|change.?out)\b", text)
+        )
+        ambiguous_action = pole_replace and comm_move
+        action_type = "OTHER" if ambiguous_action else (
+            "POLE_REPLACE" if pole_replace else ("COMM_MOVE" if comm_move else "OTHER"))
         actions.append(RemedyAction(
             pole_id=pole_id, action_type=action_type, action_description=desc,
             attachment_height=_height_ft(col("height", "attach")) if col("height", "attach") else None,
-            comm_move=comm_move and not pole_replace, pole_replace=pole_replace, notes=notes))
+            comm_move=comm_move and not ambiguous_action, pole_replace=pole_replace and not ambiguous_action,
+            notes=notes))
     return actions

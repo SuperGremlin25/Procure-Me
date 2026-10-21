@@ -196,6 +196,7 @@ def render(materials_db) -> None:
                         "name": r["Description"], "part_number": None, "quantity": float(r["Qty"]),
                         "unit": r["Unit"], "unit_cost": float(r["Unit Cost"])})
                 st.success(f"Added {len(bom)} lines to the Build Quote tab.")
+                st.rerun()
 
     with st.expander("Raw OCR text"):
         txt = "\n".join(f"[p{l.page + 1}] {l.text}" for l in result.lines)
